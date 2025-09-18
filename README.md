@@ -1,2 +1,2 @@
-# calipro_py
+# calipro-py
 Python implementation of the CaliPro calibration protocol for biological modeling (Joslyn et al., 2020)
