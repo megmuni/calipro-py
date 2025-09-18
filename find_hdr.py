@@ -35,11 +35,15 @@ def find_hdr(passedParamsVec, failedParamsVec, coverage):
     hdi -- 1x2 array, the HD interval. min and max param values that correspond
     to the HDR. used as min and max for this param for the next iteration of 
     sampling.
+    
     xdensityPass -- 1x100 array, set of density values that describe the underlying
     pass dataset distribution
+    
     xPass -- 1x100 array, x values that correspond to xdensityPass values.
+    
     xdensityFail -- 1x100 array, set of density values that describe the underlying
     fail dataset distribution
+    
     xFail -- 1x100 array, x values that correspond to xdensityFail values.
 
     """
