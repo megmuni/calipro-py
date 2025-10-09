@@ -12,6 +12,9 @@ contains the model to be run (e.g., equations for an ODE, or function calls
 
 """
 
+from read_params import read_params
+from default_output_labels import default_output_labels
+
 def model_settings():
     """
     This is a settings file for the model being calibrated using CaliPro.
@@ -71,6 +74,43 @@ def model_settings():
 
     """
     
-    #sample size
+    #sample size / number of times to run the model
+    model_NR = 500
+    
+    #time span of the simulation
+    t_end = 21 #length of simulation in days - abm model run file will convert this into ticks
+    #model_tspan #time points where output is calculated
+    #model_analysisTimePoints #time points of interest for uncertainty/SA
+    
+    # The alpha value to use for PRCC.
+    # Undefine this (comment out) if no PRCC is to be performed.
+    
+    # Doing PRCC is generally used for production runs.
+    # Not doing PRCC can be useful for testing and debugging the code which
+    # reads a settings file like this one and runs the model.
+    # model_alpha = 0.01;
+    
+    # Set saveOnError to define how to handle the case where the ODE solver
+    # fails. saveOnError = 1 means to pad the output matrix for the solution
+    # time steps that were not defined. saveOnError = 0 means dont' pad the
+    # output matrix.
+    model_saveOnError = 0;
+    
+    # Get the model parameters: name, default value, distribution, upper bound, lower bound
+    p = read_params("parameter_list.xlsx")
+    
+    # Labels to use for model outputs.
+    #
+    # The default labels are 'O1', 'O2', ..., 'On' where n is the number of
+    # model outputs
+    model_outputLabels = default_output_labels(9);
+    
+    
+    
+    
+    
+    
+    
+    
     
 
