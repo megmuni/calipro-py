@@ -84,9 +84,10 @@ def model_settings(m):
     m.NR = 10
     
     #time span of the simulation
-    t_end = 5 #length of simulation in days - abm model run function will convert this into ticks
-    m.tspan = range(1, t_end+1) #time points where output is calculated
-    m.analysisTimePoints = range(1, t_end+1)#time points of interest for uncertainty/SA
+    t_end = 5 # length of simulation in days
+    t_ticks = t_end * 48 # each tick is 30 mins
+    m.tspan = range(1, t_ticks) #time points where output is calculated
+    m.analysisTimePoints = range(1, t_ticks)#time points of interest for uncertainty/SA
     
     # The alpha value to use for PRCC.
     # Undefine this (comment out) if no PRCC is to be performed.
