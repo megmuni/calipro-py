@@ -20,10 +20,10 @@ def lhs_unif(nsample, params, p):
     ----------
     nsample : int
         sample size.
-    params : dict
-        dictionary that comes from read_params.
+    params : ndarray
+        ndarray that comes from read_params.
     p : string
-        which parameter (e.g., m1) to run sampling one.
+        which parameter (e.g., m1) to run sampling on.
 
     Returns
     -------
@@ -36,10 +36,10 @@ def lhs_unif(nsample, params, p):
     sample = sampler.random(n = 50) #how many sample sets to create (n model runs)
     
     for line in params:
-        if line['Parameter'] == p:
-            d = line['Distribution']
-            l_b = line['Lower bound']
-            u_b = line['Upper bound']
+        if line[0] == p:
+            d = line[1] # gets distribution type
+            l_b = line[2] # gets lower bound
+            u_b = line[3] # gets upper bound
     
     if d == 'Logarithmic':
         l_b = np.log(l_b)
