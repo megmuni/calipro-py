@@ -32,8 +32,10 @@ def lhs_unif(nsample, params, p):
         using the LHS algorithm.
 
     """
-    sampler = qmc.LatinHypercube(d = nsample) #run LHS on nsample parameters
-    sample = sampler.random(n = 50) #how many sample sets to create (n model runs)
+    nparams = params.shape[0]
+    
+    sampler = qmc.LatinHypercube(d = nparams) #run LHS on nsample parameters
+    sample = sampler.random(n = nsample) #how many sample sets to create (n model runs)
     
     for line in params:
         if line[0] == p:
