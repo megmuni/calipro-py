@@ -10,33 +10,34 @@ This file defines all items needed for the model. A separate file
 contains the model to be run (e.g., equations for an ODE, or function calls
                               for an ABM).
 
+
 """
 
 from read_params import read_params
 from default_output_labels import default_output_labels
 
-def model_settings():
+def model_settings(m):
     """
     This is a settings file for the model being calibrated using CaliPro.
-    
+
     You can edit the the number of runs, time points to analyze, add or
     change ranges for the parameters, initial conditions and pulse items, as
     described in the comments below.
-    
+
     This settings file does not vary the initial conditions. You can
     experiment with varying initial conditions by specifying a distribution
     to use (ex. 'u' instead of '') and values that specify a range (uniform
     'u' or log uniform 'lu' distribution) or that specify a mean and standard
     deviation (normal distribution, 'n').
-    
+
     This settings file does not define pulse time points. Those are commented
     out.  You can experiment with pulse time points by uncommenting them and
     specify pulse time points and pulse values or ranges.
-    
+
 
     Returns
     -------
-    model : dict.
+    model : object.
         equivalent of MATLAB 'structure' named model with the following
         attributes/members:
             NR -- number of times to run the model
@@ -74,13 +75,18 @@ def model_settings():
 
     """
     
+    class model:
+        pass
+    
+    m = model()
+    
     #sample size / number of times to run the model
-    model_NR = 500
+    m.NR = 10
     
     #time span of the simulation
     t_end = 21 #length of simulation in days - abm model run file will convert this into ticks
-    #model_tspan #time points where output is calculated
-    #model_analysisTimePoints #time points of interest for uncertainty/SA
+    m.tspan = range(1, t_end+1) #time points where output is calculated
+    m.analysisTimePoints = range(1, t_end+1)#time points of interest for uncertainty/SA
     
     # The alpha value to use for PRCC.
     # Undefine this (comment out) if no PRCC is to be performed.
@@ -94,16 +100,29 @@ def model_settings():
     # fails. saveOnError = 1 means to pad the output matrix for the solution
     # time steps that were not defined. saveOnError = 0 means dont' pad the
     # output matrix.
-    model_saveOnError = 0;
+    m.saveOnError = 0;
+    
+    # A function handle for the Matlab ODE model to analyze.
+    # For example: odeModelHandle = @ODEmodel;
+    #
+    # Be sure to spell this correctly, and that the file containing this
+    # function exists and is on the Matlab path.
+    #
+    # Don't put it in quotes, ex. odeModelHandle = '@ODEmodel';
+    # is not correct.
+    #
+    #m.modelHandle = @lhs_ode_predator_prey_ode_c;
     
     # Get the model parameters: name, default value, distribution, upper bound, lower bound
-    p = read_params("parameter_list.xlsx")
+    m.params = read_params("parameter_list.xlsx")
     
     # Labels to use for model outputs.
     #
     # The default labels are 'O1', 'O2', ..., 'On' where n is the number of
     # model outputs
-    model_outputLabels = default_output_labels(9);
+    m.outputLabels = default_output_labels(9);
+    
+    return m;
     
     
     
