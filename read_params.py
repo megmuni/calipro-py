@@ -31,8 +31,11 @@ def read_params(file):
     
     #Reading the list of parameter bounds from the file
     df = pd.read_excel(file)
-    short = df[['Parameter', 'Default value', 'Distribution', 'Lower bound', 'Upper bound']]
-    params = short.to_dict('records')
+    short = df[['Parameter', 'Distribution', 'Lower bound', 'Upper bound']]
+    short = short.values
+    print(short)
+    params = short
+    #params = short.to_dict('records')
 
     return params
 
