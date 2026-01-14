@@ -84,7 +84,7 @@ def model_settings(m):
     m.NR = 10
     
     #time span of the simulation
-    t_end = 21 #length of simulation in days - abm model run file will convert this into ticks
+    t_end = 5 #length of simulation in days - abm model run function will convert this into ticks
     m.tspan = range(1, t_end+1) #time points where output is calculated
     m.analysisTimePoints = range(1, t_end+1)#time points of interest for uncertainty/SA
     
