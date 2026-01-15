@@ -34,7 +34,7 @@ def model_run(modelSettings, runIteration):
     """
     
     # Declare variables
-    odeOut = {}
+    model_out = []
     totalPrcc = []
     totalSign = [] #assignin('base', 'totalSign', totalSign);
     totalPrccSignEval = [] #assignin('base', 'totalPrccSignEval',totalPrccSignEval);
@@ -56,6 +56,13 @@ def model_run(modelSettings, runIteration):
     
     paramMatrix, LHSmatrix, PRCC_var = define_run_matrices(modelSettings)
     
+    # Initialize
+    model_out = init_vars(
+        len(modelSettings.outputLabels),
+        len(modelSettings.tspan),
+        modelSettings.NR
+    )
+    
     # perform the NR model runs
     for run in range(1, modelSettings.NR):
         print(f'{run} ', end='', flush=True)
@@ -64,7 +71,7 @@ def model_run(modelSettings, runIteration):
             print()
         
         run_parameters = paramMatrix[run, :]
-       # y0 = icMatrix[run, :] would be used if there were initial conditions to be varied
+        #y0 = icMatrix[run, :] would be used if there were initial conditions to be varied
        
         try:
              if not hasattr(modelSettings, 'pulseTimePoints'):
@@ -259,10 +266,80 @@ def store_model_run_output(model_out, run, y):
         Updated model_out dictionary
 
     """
+    for o in range(len(model_out)):
+        model_out[o][:, run] = y[:, o]
     
-    model_out[run] = y
     return model_out
     
+def init_vars(output_count, time_point_count, run_count):
+    """
+    Pre-allocate the output data structure for speed.
     
+    Parameters:
+    -----------
+    output_count : int
+        The number of model outputs, the same as the number of model
+        equations and model initial conditions.
+    
+    time_point_count : int
+        The number of model output time points for each model run.
+    
+    run_count : int
+        The number of model runs.
+    
+    Returns:
+    --------
+    list
+        A list that has 1 element per model output. Each element for
+        a model output is a matrix with time_point_count rows and run_count
+        columns. Column r is the model results for that model output for
+        all time points for run r. Row t is the model results for that
+        model output for time point t for all runs.
+    """
+    model_out = []
+    for o in range(output_count):
+        model_out.append(np.zeros((time_point_count, run_count)))
+    
+    return model_out
+
+def save_error(model_out, run, y, tspan):
+    """
+    Save error case by padding output with last value.
+    
+    Parameters:
+    -----------
+    model_out : list
+        List of numpy arrays, one per output variable.
+        Each array has shape (time_point_count, run_count).
+    run : int
+        Run index (0-based)
+    y : numpy.ndarray
+        Partial model output with shape (partial_time_points, output_count)
+    tspan : numpy.ndarray
+        Full time span
+    
+    Returns:
+    --------
+    list
+        Updated ode_out list
+    """
+    if len(y) > 0 and y.shape[0] > 0:
+        # Pad with last value to match expected length
+        num_missing = len(tspan) - y.shape[0]
+        last_value = y[-1, :]  # Shape: (output_count,)
+        
+        # Create padding by repeating the last value
+        padding = np.tile(last_value, (num_missing, 1))
+        y_padded = np.vstack([y, padding])
+        
+        # Store padded results for each output variable
+        for o in range(len(model_out)):
+            model_out[o][:, run] = y_padded[:, o]
+    else:
+        # No output at all - fill with NaNs
+        for o in range(len(model_out)):
+            model_out[o][:, run] = np.nan
+    
+    return model_out
     
 
