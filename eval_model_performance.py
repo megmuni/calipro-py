@@ -10,7 +10,7 @@ File to evaluate model performance
 import pandas as pd
 import numpy as np
 
-def eval_model_performance(calibration_input, model_runs, pass_criteria):
+def eval_model_performance(calibration_input, model_runs, paramMatrix, pass_criteria):
     """
     This function evaluates model performance by comparing model run outcomes
     against experimental data provided by the user.
@@ -21,19 +21,20 @@ def eval_model_performance(calibration_input, model_runs, pass_criteria):
         holds user input to calibration program.
     modelRuns : TYPE
         structure that holds modelRuns output from the 'run' function
-        as well as other information such as paramMatrix.
+    paramMatrix : ndarray
+        parameter matrix from model runs
     passCriteria : TYPE
         DESCRIPTION.
 
     Returns
     -------
-    passedTotalModelRuns : a matrix that holds the runs that passed following
+    passed_total_runs : a matrix that holds the runs that passed following
     comparison to user-provided data.
-    passedTotalParams : a matrix holding the parameter values for the
+    passed_total_params : a matrix holding the parameter values for the
     runs that passed following comparison to user-provided data.
-    failedTotalModelRuns : a matrix that holds the runs that failed
+    failed_total_runs : a matrix that holds the runs that failed
     following comparison to user-provided data. 
-    failedTotalParams : a matrix that holds the parameter values for the
+    failed_total_params : a matrix that holds the parameter values for the
     runs that failed following comparison to user-provided data. 
 
 
@@ -71,9 +72,21 @@ def eval_model_performance(calibration_input, model_runs, pass_criteria):
     common_ix_passed = [x for x in run_ix_agg_passed if x in run_ix_viable_passed and x in run_ix_diff_passed]
     common_ix_failed = run_ix_agg_failed + run_ix_viable_failed + run_ix_diff_failed
     
-    # subset runs, LHS matrix, param matrix to include only the ones that passed
-    passed_total_params = 
+    # subset runs, param matrix to include only the ones that passed
+    passed_total_params = paramMatrix[common_ix_passed, :]
+    passed_total_runs[] = agg_out[:, common_ix_passed]
+    passed_total_runs[] = tgf_out[:, common_ix_passed]
+    passed_total_runs[] = viable_out[:, common_ix_passed]
+    passed_total_runs[] = diff_out[:, common_ix_passed]
     
+    # subset runs, param matrix to include only the ones that failed
+    failed_total_params = paramMatrix[common_ix_failed, :]
+    failed_total_runs[] = agg_out[:, common_ix_failed]
+    failed_total_runs[] = tgf_out[:, common_ix_failed]
+    failed_total_runs[] = viable_out[:, common_ix_failed]
+    failed_total_runs[] = diff_out[:, common_ix_failed]
+    
+    return passed_total_params, passed_total_runs, failed_total_params, failed_total_runs
     
     
     
