@@ -16,6 +16,9 @@ contains the model to be run (e.g., equations for an ODE, or function calls
 from read_params import read_params
 from default_output_labels import default_output_labels
 
+class model:
+    pass
+
 def model_settings(m):
     """
     This is a settings file for the model being calibrated using CaliPro.
@@ -74,11 +77,6 @@ def model_settings(m):
             
 
     """
-    
-    class model:
-        pass
-    
-    m = model()
     
     #sample size / number of times to run the model
     m.NR = 10
