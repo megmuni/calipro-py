@@ -21,7 +21,7 @@ def model_run(modelSettings, runIteration):
 
     Parameters
     ----------
-    odeSettings : string
+    modelSettings : string
         file name that contains the definitions of the LHS settings needed by 
         this script.
     runIteration : TYPE
@@ -159,7 +159,7 @@ def model_run(modelSettings, runIteration):
             model_out = save_error(model_out, run, y, modelSettings.tspan)
 
         print()  # Final newline after progress display
-        return model_out, error_runs
+        return model_out, paramMatrix, error_runs
 
 def run_ABM(run, modelSettings, run_parameters, tspan):
     """
