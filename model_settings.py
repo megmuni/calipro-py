@@ -55,6 +55,9 @@ def model_settings(param_file="parameters.xlsx"):
     #sample size / number of times to run the model per iteration
     m.NR = 10
     
+    #replicates of ABM per param set (total runs = NR * reps)
+    m.reps = 3
+    
     #time span of the simulation
     t_end = 7 # length of simulation in days (21 for full runs)
     t_ticks = t_end * 48 # each tick is 30 mins
@@ -67,6 +70,9 @@ def model_settings(param_file="parameters.xlsx"):
     # at least 2 runs, or there is nothing to compare between pass and fail
     if m.NR < 2:
         raise ValueError(f"NR must be at least 2, got {m.NR}")
+        # at least one run per parameter set
+    if m.reps < 1:
+        raise ValueError(f"reps must be at least 1, got {m.reps}")
     # analysis ticks must be ticks the model records
     if not set(m.analysisTimePoints) <= set(m.tspan):
         raise ValueError("analysisTimePoints must all be in tspan")
