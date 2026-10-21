@@ -11,7 +11,7 @@ by Rob Hyndman in 1996. https://doi.org/10.1080/00031305.1996.10474359
 import numpy as np
 from ks_density import ks_density
 
-def find_hdr(passedParamsVec, failedParamsVec, coverage):
+def find_hdr(passed, failed, coverage):
     """
     
     For a given set of parameter values, calculates the density distribution of
@@ -20,10 +20,10 @@ def find_hdr(passedParamsVec, failedParamsVec, coverage):
 
     Parameters
     ----------
-    passedParamsVec : array
+    passed : array
         array of number of passed runs x 1 (param that is being calculated to 
                                             find HDR)
-    failedParamsVec : array
+    failed : array
         array of number of failed runs x 1 (same param as passedParamsVec that 
                                             is being calculated for HDR).
     coverage : float
@@ -36,39 +36,56 @@ def find_hdr(passedParamsVec, failedParamsVec, coverage):
     to the HDR. used as min and max for this param for the next iteration of 
     sampling.
     
-    xdensityPass -- 1x100 array, set of density values that describe the underlying
+    x -- 1x100 array, x values (param values) shared by all density arrays,
+    spanning the observed passed values.
+
+    densPass -- 1x100 array, set of density values that describe the underlying
     pass dataset distribution
-    
-    xPass -- 1x100 array, x values that correspond to xdensityPass values.
-    
-    xdensityFail -- 1x100 array, set of density values that describe the underlying
-    fail dataset distribution
-    
-    xFail -- 1x100 array, x values that correspond to xdensityFail values.
+
+    densFail -- 1x100 array, set of density values that describe the underlying
+    fail dataset distribution, zero outside the observed failed values (all
+    zeros if there are no failed runs)
+
+    densSub -- None. Returned so the outputs match find_ads.
 
     """
+    # convert inputs (lists or column vectors) to flat float arrays
+    passed = np.asarray(passed, dtype=float).ravel()
+    failed = np.asarray(failed, dtype=float).ravel()
     
-    #find the density estimation
-    xdensityPass, xPass = ks_density(passedParamsVec)
+    # shared grid over the observed pass values
+    x = np.linspace(passed.min(), passed.max(), 100)
     
-    #find the HDR (returned as the HDI, interval)
-    best = 0 #counter to hold the best value as you iterate through
-    for i in range(len(xPass) - 1):
-        for j in range(i + 1, len(xPass)):
-            mass = np.sum(np.diff(xPass[i:j]) * xdensityPass[i+1:j])
-            if mass >= coverage and mass / (xPass[j] - xPass[i]) > best:
-                best = mass / (xPass[j] - xPass[i])
-                i_best = i
-                j_best = j
+    # kernel density of the passed parameter values
+    densPass, _ = ks_density(passed, x)
     
-    #return the x ranges for where the best i_ and j_ are found
-    hdi = [xPass[i], xPass[j]]
+    # no failed runs: fail density is zero everywhere
+    if failed.size == 0:
+        densFail = np.zeros_like(densPass)
+    else:
+        # kernel density of the failed parameter values on the same grid (for plotting)
+        densFail, _ = ks_density(failed, x)
+        # zero density outside the observed fail values
+        densFail[(x < failed.min()) | (x > failed.max())] = 0
     
-    #if there are no failedParamsVec
-    if len(failedParamsVec) == 0:
-        xdensityFail = []  #make the density empty
-        xFail = []  #make the x-values that go with the density empty too
-    else:  #find the densities for the failed parameters as well
-        xdensityFail, xFail = ks_density(failedParamsVec)
+    # if all passed values identical, the range is that single value
+    if passed.min() == passed.max():
+        return np.array([passed.min(), passed.max()]), x, densPass, densFail, None
     
-    return hdi, xdensityPass, xPass, xdensityFail, xFail
+    # cumulative mass along the grid (same sum as the MATLAB loop), normalized to 1
+    cuml = np.concatenate(([0.0], np.cumsum(np.diff(x) * densPass[1:])))
+    cuml /= cuml[-1]
+    
+    # mass and width of every interval [x[i], x[j]]
+    mass = cuml[None, :] - cuml[:, None]
+    width = x[None, :] - x[:, None]
+    
+    # average density of intervals that reach the coverage; others excluded
+    with np.errstate(divide="ignore", invalid="ignore"):
+        score = np.where((width > 0) & (mass >= coverage), mass / width, -np.inf)
+        
+    # densest qualifying interval
+    i, j = np.unravel_index(np.argmax(score), score.shape)
+    hdi = np.array([x[i], x[j]])
+    
+    return hdi, x, densPass, densFail, None
