@@ -7,23 +7,24 @@ Created on Mon Sep 15 14:53:22 2025
 Latin Hypercube Sampling (LHS) from uniform distribution
 
 """
-import pandas as pd
 import numpy as np
 from scipy.stats import qmc
-#from read_params import read_params
 
-def lhs_unif(nsample, params, p):
+def lhs_unif(nsample, params, p, seed=None):
     """
     Samples parameter values using Latin Hypercube Sampling
 
     Parameters
     ----------
     nsample : int
-        sample size.
+        sample size
     params : ndarray
-        ndarray that comes from read_params.
+        dict that comes from read_params:
+        {name: {'distribution': ..., 'lower': ..., 'upper': ...}}
     p : string
-        which parameter (e.g., m1) to run sampling on.
+        which parameter (e.g., 'stem:apoptosis_chance') to run sampling on
+    seed : int or np.random.Generator, optional, default None
+        seed or generator, for reproducible samples
 
     Returns
     -------
@@ -32,30 +33,35 @@ def lhs_unif(nsample, params, p):
         using the LHS algorithm.
 
     """
-    nparams = params.shape[0]
+    # find this parameter's distribution type and bounds
+    if p not in params:
+        raise ValueError(f"parameter '{p}' not found in params")
+    d = params[p]['distribution']
+    l_b, u_b = float(params[p]['lower']), float(params[p]['upper'])
     
-    sampler = qmc.LatinHypercube(d = nparams) #run LHS on nsample parameters
-    sample = sampler.random(n = nsample) #how many sample sets to create (n model runs)
+    # bounds must define a range - check
+    if l_b >= u_b:
+        raise ValueError(f"{p}: lower bound {l_b} must be < upper bound {u_b}")
     
-    for line in params:
-        if line[0] == p:
-            d = line[1] # gets distribution type
-            l_b = line[2] # gets lower bound
-            u_b = line[3] # gets upper bound
+    # LHS for one parameter
+    sampler = qmc.LatinHypercube(d=1, seed=seed)
+    sample = sampler.random(n=nsample)[:, 0]
     
+    # uniform in log space: equal weight to each order of magnitude
     if d == 'Logarithmic':
-        l_b = np.log(l_b)
-        u_b = np.log(u_b)
-        sample_scaled = np.exp(l_b + sample * (u_b - l_b))
-        #sample_scaled = qmc.scale(sample, l_b, u_b)
-        #sample_scaled[:, 0] = np.exp(sample_scaled[:, 0])
-    elif d == 'Linear' or d == 'Discrete':
-        sample_scaled = qmc.scale(sample, l_b, u_b)
+        if l_b <= 0:
+            raise ValueError(f"{p}: log sampling needs positive bounds")
+        sample_scaled = np.exp(np.log(l_b) + sample * (np.log(u_b) - np.log(l_b)))
+    # uniform between lower and upper bound
+    elif d == 'Linear':
+        sample_scaled = l_b + sample * (u_b - l_b)
+    # integers l_b..u_b inclusive, each equally likely
+    elif d == 'Discrete':
+        sample_scaled = np.floor(l_b + sample * (u_b - l_b + 1))
+    else:
+        raise ValueError(f"{p}: unknown distribution '{d}'")
     
     return sample_scaled
-
-#params = read_params("parameter_list.xlsx")
-#s = lhs_unif(50, params, 'p8')
 
 
     
