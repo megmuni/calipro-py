@@ -7,128 +7,133 @@ Created on Thu Oct  9 10:55:06 2025
 File to evaluate model performance
 
 """
-import pandas as pd
+
 import numpy as np
 
-def eval_model_performance(calibration_input, model_runs, paramMatrix, pass_criteria):
+def eval_model_performance(criteria, model_out, days, paramMatrix):
     """
     This function evaluates model performance by comparing model run outcomes
-    against experimental data provided by the user.
+    against experimental data/pass criteria provided by the user. A run passes only
+    if it satisfies every criterion. Each replicate is a separate run and passes or fails
+    on its own.
 
     Parameters
     ----------
-    calibrationInput : Pandas dataframe?
-        holds user input to calibration program.
-    modelRuns : TYPE
-        structure that holds modelRuns output from the 'run' function
-    paramMatrix : ndarray
-        parameter matrix from model runs
-    passCriteria : TYPE
-        DESCRIPTION.
+    criteria : list of dict or functions
+        the pass set definition. Each criterion is either
+        - a bound: {'output': column name, 'day': day, 'min': lower, 'max': upper}.
+          Leave out 'min' or 'max' (or set to None) for a one-sided criterion,
+          e.g. {'output': 'Total Cells', 'day': 21, 'max': 2000}.
+        - a function f(model_out, days) returning a boolean per run, for
+          trends and comparisons between outputs.
 
-    Returns
-    -------
-    passed_total_runs : a matrix that holds the runs that passed following
-    comparison to user-provided data.
-    passed_total_params : a matrix holding the parameter values for the
-    runs that passed following comparison to user-provided data.
-    failed_total_runs : a matrix that holds the runs that failed
-    following comparison to user-provided data. 
-    failed_total_params : a matrix that holds the parameter values for the
-    runs that failed following comparison to user-provided data. 
-
-
-    """
-    
-    # temp vars for model output
-    # model_out is a list where model_out[0] is output 1, model_out[1] is output 2, etc.
-    # Each has shape (timesteps, number_of_runs)
-    tnf_out = model_runs[0]
-    il1b_out = model_runs[1]
-    tgf_out = model_runs[2]
-    coll_out = model_runs[3]
-    agg_out = model_runs[4]
-    totcells_out = model_runs[5]
-    viable_out = model_runs[6]
-    diff_out = model_runs[7]
-    
-    # temp vars for calibration input
-    tnf_ds = calibration_input[0]
-    il1b_ds = calibration_input[1]
-    tgf_ds = calibration_input[2]
-    coll_ds = calibration_input[3]
-    agg_ds = calibration_input[4]
-    totcells_ds = calibration_input[5]
-    viable_ds = calibration_input[6]
-    diff_ds = calibration_input[7]
-    
-    # how does the output perform against dataset?
-    passed_agg_out, run_ix_agg_passed, run_ix_agg_failed = find_passed(agg_out, agg_ds, pass_criteria)
-    passed_tgf_out, run_ix_tgf_passed, run_ix_tgf_failed = find_passed(tgf_out, tgf_ds, pass_criteria)
-    passed_viable_out, run_ix_viable_passed, run_ix_viable_failed = find_passed(viable_out, viable_ds, pass_criteria)
-    passed_diff_out, run_ix_diff_passed, run_ix_diff_failed = find_passed(diff_out, diff_ds, pass_criteria)
-    
-    # find the columns that are in common between the conditions
-    common_ix_passed = [x for x in run_ix_agg_passed if x in run_ix_viable_passed and x in run_ix_diff_passed]
-    common_ix_failed = run_ix_agg_failed + run_ix_viable_failed + run_ix_diff_failed
-    
-    # subset runs, param matrix to include only the ones that passed
-    passed_total_params = paramMatrix[common_ix_passed, :]
-    passed_total_runs[] = agg_out[:, common_ix_passed]
-    passed_total_runs[] = tgf_out[:, common_ix_passed]
-    passed_total_runs[] = viable_out[:, common_ix_passed]
-    passed_total_runs[] = diff_out[:, common_ix_passed]
-    
-    # subset runs, param matrix to include only the ones that failed
-    failed_total_params = paramMatrix[common_ix_failed, :]
-    failed_total_runs[] = agg_out[:, common_ix_failed]
-    failed_total_runs[] = tgf_out[:, common_ix_failed]
-    failed_total_runs[] = viable_out[:, common_ix_failed]
-    failed_total_runs[] = diff_out[:, common_ix_failed]
-    
-    return passed_total_params, passed_total_runs, failed_total_params, failed_total_runs
-    
-    
-    
-    
-    
-def find_passed(model_out, exp_data, pass_criteria):
-    """
-    Finds passed runs and collects pass/fail indices
-
-    Parameters
-    ----------
-    model_out : 
-        DESCRIPTION.
-    exp_data : 
-        DESCRIPTION.
-    pass_criteria : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    None.
-
-    """
-    
-    run_ix_passed = [];
-    run_ix_failed = [];
-    
-    # logical indexing to check if runs pass through the criteria
-    logical_array_cond1 = model_out >= exp_data[:,0] / pass_criteria
-    logical_array_cond2 = model_out <= exp_data[:,1] * pass_criteria
-    logical_array_tot = logical_array_cond1 & logical_array_cond2
-    
-    for i in logical_array_tot:
-        if i == 1:
-            # cols with all ones -- passed the criteria
-            run_ix_passed.append(logical_array_tot.index(i))
-        elif i == 0:
-            # cols with all zeroes -- failed the criteria
-            run_ix_failed.append(logical_array_tot.index(i))
-    
-    # use run_ix_passed to pull those columns from the total runs matrix
-    passed_runs = model_out[:, run_ix_passed]
-    
-    return passed_runs, run_ix_passed, run_ix_failed
+    model_out : dict
+        {output name: timepoints x runs array}, from read_outputs.
         
+    days : ndarray
+        day of each timepoint (row), from read_outputs.
+        
+    paramMatrix : ndarray
+        runs x varied params, from define_run_matrices (replicates repeated).
+
+
+    Returns
+    -------
+    passed_params : ndarray
+        parameter values (rows of paramMatrix) for the runs that passed.
+        
+    passed_runs : dict
+        {output name: timepoints x passed runs} model output of passed runs.
+        
+    failed_params : ndarray
+        parameter values (rows of paramMatrix) for the runs that failed.
+        
+    failed_runs : dict
+        {output name: timepoints x failed runs} model output of failed runs.
+
+    """
+    
+    # start with every run passing, then require each criterion
+    passed = np.ones(paramMatrix.shape[0], dtype=bool)
+    for criterion in criteria:
+        # function criteria (trends, comparisons) decide pass/fail
+        if callable(criterion):
+            ok = np.asarray(criterion(model_out, days), dtype=bool)
+            if ok.shape != passed.shape:
+                raise ValueError(f"criterion {criterion} must return one True/False per run")
+        # bound criteria: one output on one day within min/max
+        else:
+            ok = check_criterion(criterion, model_out, days)
+        passed &= ok
+        
+    # split parameters and outputs into passed and failed runs
+    passed_params = paramMatrix[passed]
+    failed_params = paramMatrix[~passed]
+    passed_runs = {name: out[:, passed] for name, out in model_out.items()}
+    failed_runs = {name: out[:, ~passed] for name, out in model_out.items()}
+    
+    return passed_params, passed_runs, failed_params, failed_runs
+
+def at_day(model_out, days, output, day):
+    """
+    Value of one output on one day, for every run. Helper for writing
+    function criteria, e.g. at_day(out, days, 'NP Cells', 21)
+ 
+    Parameters
+    ----------
+    model_out : dict
+        {output name: timepoints x runs array}
+    days : ndarray
+        day of each timepoint (row)
+    output : str
+        output column name
+    day : float
+        a recorded day
+ 
+    Returns
+    -------
+    values : ndarray
+        one value per run
+ 
+    """
+    # the output must exist in the model output files
+    if output not in model_out:
+        raise ValueError(f"output '{output}' not in model output")
+ 
+    # the day must be a recorded timepoint
+    row = np.flatnonzero(np.isclose(days, day))
+    if row.size == 0:
+        raise ValueError(f"day {day} not in model output")
+ 
+    return model_out[output][row[0]]
+
+def check_criterion(criterion, model_out, days):
+    """
+    Checks one criterion of the pass set definition for every run.
+ 
+    Parameters
+    ----------
+    criterion : dict
+        {'output', 'day', 'min' (optional), 'max' (optional)}
+    model_out : dict
+        {output name: timepoints x runs array}
+    days : ndarray
+        day of each timepoint (row)
+ 
+    Returns
+    -------
+    ok : ndarray
+        boolean, one per run: True if the run satisfies the criterion
+ 
+    """
+    # value of this output on that day, for every run
+    values = at_day(model_out, days, criterion['output'], criterion['day'])
+ 
+    # within the lower and/or upper bound
+    ok = np.ones(values.size, dtype=bool)
+    if criterion.get('min') is not None:
+        ok &= values >= criterion['min']
+    if criterion.get('max') is not None:
+        ok &= values <= criterion['max']
+ 
+    return ok
