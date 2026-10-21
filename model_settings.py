@@ -56,7 +56,7 @@ def model_settings(param_file="parameters.xlsx"):
     m.NR = 10
     
     #time span of the simulation
-    t_end = 5 # length of simulation in days
+    t_end = 7 # length of simulation in days (21 for full runs)
     t_ticks = t_end * 48 # each tick is 30 mins
     m.tspan = range(0, t_ticks + 1) #time points where output is calculated
     m.analysisTimePoints = range(0, t_ticks + 1)#time points of interest for uncertainty/SA
