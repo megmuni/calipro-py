@@ -64,4 +64,11 @@ def model_settings(param_file="parameters.xlsx"):
     # Get the model parameters: name, default value, distribution, upper bound, lower bound
     m.params, m.fixed = read_params(param_file)
     
+    # at least 2 runs, or there is nothing to compare between pass and fail
+    if m.NR < 2:
+        raise ValueError(f"NR must be at least 2, got {m.NR}")
+    # analysis ticks must be ticks the model records
+    if not set(m.analysisTimePoints) <= set(m.tspan):
+        raise ValueError("analysisTimePoints must all be in tspan")
+    
     return m
