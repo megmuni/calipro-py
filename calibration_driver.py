@@ -72,7 +72,7 @@ def make_criteria(c):
 
     """
     # EXAMPLE criteria for 7-day test runs; replace with your own
-    cells_day7 = [1100, 1250, 1400]   # experimental values on day 7
+    cells_day7 = [1100, 1200, 1150]   # experimental values on day 7
     return [
         # window around experimental data
         {'output': 'Total Cells', 'day': 7,
