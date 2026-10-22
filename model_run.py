@@ -4,342 +4,130 @@ Created on Thu Oct  9 11:48:52 2025
 
 @author: mmunip
 
-Setup & running main routine
+Samples parameters, runs the ABM for each run and collects the output
 
 """
-import subprocess
-import sys
-import csv
 import os
-import numpy as np
+from pathlib import Path
+from ABM import create_sample_file, get_template_parameter_paths, prepare_workdir
+from ABM import run_ABM as abm_run_ABM
 from define_run_matrices import define_run_matrices
+from read_outputs import read_outputs
 
 
-def model_run(modelSettings, runIteration):
+def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
     """
-    Setup and run of an LHS analysis of a model - main routine
+    Setup and run of one CaliPro iteration: LHS sampling, ABM runs, output
 
     Parameters
     ----------
-    modelSettings : string
-        file name that contains the definitions of the LHS settings needed by 
-        this script.
-    runIteration : TYPE
-        DESCRIPTION.
+    modelSettings : SimpleNamespace
+        settings from model_settings
+    runIteration : int
+        CaliPro iteration number (used for output folder names)
+    rng : np.random.Generator
+        one shared generator for the whole calibration
+    out_dir : str, optional
+        folder where each iteration's run directories (config, logs, output) are kept
 
     Returns
     -------
-    None.
-
-    """
-    
-    # Declare variables
-    model_out = []
-    totalPrcc = []
-    totalSign = [] #assignin('base', 'totalSign', totalSign);
-    totalPrccSignEval = [] #assignin('base', 'totalPrccSignEval',totalPrccSignEval);
-    paramMatrix = [] #assignin('base', 'paramMatrix', paramMatrix);
-    #icMatrix = [] #assignin('base', 'icMatrix', icMatrix);
-    #pulseMatrix = [] #assignin('base', 'pulseMatrix', pulseMatrix);
-    LHSmatrix = [] #assignin('base', 'LHSmatrix', LHSmatrix);
-    PRCC_var = [] #assignin('base', 'PRCC_var', PRCC_var);
-    
-    CalibrationOutput = {}
-    
-    error_runs = {};
-    
-    print('\n=====================================\n');
-    print('   ABM LHS Run %d', runIteration);
-    print('\n=====================================\n');
-    
-    # Build parameter matrix
-    
-    paramMatrix, LHSmatrix, PRCC_var = define_run_matrices(modelSettings)
-    
-    # Initialize
-    model_out = init_vars(
-        len(modelSettings.outputLabels),
-        len(modelSettings.tspan),
-        modelSettings.NR
-    )
-    
-    # perform the NR model runs
-    for run in range(1, modelSettings.NR):
-        print(f'{run} ', end='', flush=True)
-        
-        if run % 25 == 0:
-            print()
-        
-        run_parameters = paramMatrix[run, :]
-        #y0 = icMatrix[run, :] would be used if there were initial conditions to be varied
-       
-        try:
-             if not hasattr(modelSettings, 'pulseTimePoints'):
-                 # Not pulsing ODE conditions, just run the model
-                 t, y, saved_warn_msg, saved_warn_id = run_ABM(
-                     run, modelSettings, run_parameters, modelSettings.tspan
-                 )
-             # else:
-             #     # Pulsing ODE conditions. Update the initial conditions at the
-             #     # pulse time step.
-                 
-             #     # For getting pulse amounts. y0 is updated after each solver
-             #     # call, so we need to save the initial conditions
-             #     y0_initial = y0.copy()
-                 
-             #     # Solve for the time steps up to just before the first pulse
-             #     pre_tspan = ode_settings['tspan'][:ode_settings['pulseTimePointIdx'][0]]
-             #     t, y, saved_warn_msg, saved_warn_id = run_ABM(
-             #         ode_settings, run_parameters, y0, pre_tspan
-             #     )
-                 
-             #     # Only do the pulses if the initial model call succeeded
-             #     if len(t) == len(pre_tspan):
-                     
-             #         # Initial conditions for first pulse call
-             #         y0 = y[-1, :]
-                     
-             #         for i in range(len(ode_settings['pulseTimePointIdx'])):
-                         
-             #             # ptpidx and ptpidx_next are indices into tspan
-             #             ptpidx = ode_settings['pulseTimePointIdx'][i]
-             #             if i < len(ode_settings['pulseTimePointIdx']) - 1:
-             #                 # About to do the next pulse. Solve to the time point
-             #                 # just before the time point of the next pulse
-             #                 ptpidx_next = ode_settings['pulseTimePointIdx'][i + 1] - 1
-             #             else:
-             #                 # About to do the last pulse. Solve to the end
-             #                 ptpidx_next = len(ode_settings['tspan']) - 1
-                         
-             #             # Pulse
-             #             # pulse_matrix is 3D, so pulse_matrix[run, i, :] gives pulse vector
-             #             pulse_vector = pulse_matrix[run, i, :].reshape(y0.shape)
-             #             y0 = y0 + pulse_vector
-                         
-             #             # Solve the model from the end of the last solution to
-             #             # the time of the next pulse
-             #             curr_tspan = ode_settings['tspan'][ptpidx - 1:ptpidx_next + 1]
-                         
-             #             t_curr, y_curr, saved_warn_msg, saved_warn_id = run_ABM(
-             #                 ode_settings, run_parameters, y0, curr_tspan
-             #             )
-                         
-             #             # Append the current result vectors into final result vectors
-             #             # Skip the first time point and first model output
-             #             t = np.concatenate([t, t_curr[1:]])
-             #             y = np.vstack([y, y_curr[1:, :]])
-                         
-             #             # Check if the model stopped early
-             #             if len(t_curr) != len(curr_tspan):
-             #                 break
-                         
-             #             # The initial conditions for the next call are the
-             #             # model state at the last time step
-             #             y0 = y_curr[-1, :]
-                     
-        except Exception as err:
-            # Save the error info so it can be included in error_runs later
-            saved_warn_msg = str(err)
-            saved_warn_id = type(err).__name__
-            t = []
-        
-        if len(t) == len(modelSettings.tspan):
-            # Store model outputs in the model_out dictionary
-            model_out = store_model_run_output(model_out, run, y)
-        else:
-            # The model stopped early
-            error_runs.append({
-                'run': run,
-                'message': saved_warn_msg,
-                'id': saved_warn_id
-            })
-        
-        if modelSettings.saveOnError == 1:
-            # Pad with last value and record
-            model_out = save_error(model_out, run, y, modelSettings.tspan)
-
-        print()  # Final newline after progress display
-        return model_out, paramMatrix, error_runs
-
-def run_ABM(run, modelSettings, run_parameters, tspan):
-    """
-    Run the external ABM (testRun) with the given params.
-
-    Parameters
-    ----------
-    modelSettings : TYPE
-        DESCRIPTION.
-    run_parameters : TYPE
-        DESCRIPTION.
-    tspan : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    None.
-
-    """
-    
-    stdout_file_name = "output/Calibration/stdout.txt"
-    stderr_file_name = "output/Calibration/stderr.txt"
-    open(stdout_file_name, 'w').close()
-    open(stderr_file_name, 'w').close()
-    
-    # Put sampled parameters into text file
-    np.savetxt("Sample.txt", run_parameters, delimiter='\t')
-    
-    nticks = modelSettings.tspan
-    
-    try:
-        # Run model
-        with open(stdout_file_name, 'a') as stdout_file:
-            with open(stderr_file_name, 'a') as stderr_file:
-                stdout_file.write("\n\n******************************\n*** MODEL EXECUTION #" + str(run) + " ***\n******************************\n")
-                stderr_file.write("\n\n******************************\n*** MODEL EXECUTION #" + str(run) + " ***\n******************************\n")
-                result = subprocess.run(["./bin/testRun", "--numticks", nticks , "--inputfile" , "config_scaffold.txt", "--wxw", "0.5", "--wyw", "0.4", "--wzw", "0.3"], stdout = stdout_file, stderr = stderr_file)
-        
-        # Error handling
-        if result.returncode != 0:
-            saved_warn_msg = result.stderr if result.stderr else 'Model execution failed'
-            saved_warn_id = f'ExecutableError_{result.returncode}'
-        elif result.stderr:
-            saved_warn_msg = result.stderr
-            saved_warn_id = 'ExecutableWarning'
-        
-        output_file_name = 'output/Output_Biomarkers.csv'
-        
-        # Save output
-        if os.path.exists(output_file_name):
-            output_data = np.loadtxt(output_file_name)
-            
-            # first column is time, rest are output variables
-            if output_data.ndim == 1:
-                # Single time point
-                t = np.array([output_data[0]])
-                y = output_data[2, 3, 4, 5, 6, 7, 19, 20].reshape(1, -1)
-            else:
-                t = output_data[:, 0]
-                y = output_data[:, [2, 3, 4, 5, 6, 7, 19, 20]]
-        else:
-            # Output file not created - model failed
-            t = np.array([])
-            y = np.array([])
-            if not saved_warn_msg:
-                saved_warn_msg = 'Output file not created by executable'
-                saved_warn_id = 'NoOutputError'
-
-    except Exception as e:
-        saved_warn_msg = str(e)
-        saved_warn_id = type(e).__name__
-        t = np.array([])
-        y = np.array([])
-    
-    # file cleanup
-    finally:
-        temp_files = [stderr_file_name, stdout_file_name, "Sample.txt"]
-        for temp_file in temp_files:
-            if os.path.exists(temp_file):
-                try:
-                    os.remove(temp_file)
-                except:
-                    pass
-    return t, y, saved_warn_msg, saved_warn_id
-        
-
-
-def store_model_run_output(model_out, run, y):
-    """
-    Store model run output in a results dict
-
-    Parameters
-    ----------
     model_out : dict
-        stores all model outputs.
+        {output name: timepoints x runs array}. NaN for failed runs
+    days : ndarray
+        day of each timepoint (row)
+    paramMatrix : ndarray
+        runs x varied params (replicates repeated), from define_run_matrices
+    names : list
+        varied parameter names, in the column order of paramMatrix
+    error_runs : list of dict
+        {'run', 'message', 'id'} for each run that failed
+
+    """
+    print('\n=====================================')
+    print(f'   ABM LHS Run {runIteration}')
+    print('=======================================\n')
+
+    # sample parameter sets (rows repeated for replicates)
+    paramMatrix, names = define_run_matrices(modelSettings, rng)
+
+    # folder for this iteration's configs, logs and outputs
+    iter_dir = os.path.join(out_dir, f"iteration_{runIteration}")
+    os.makedirs(iter_dir, exist_ok=True)
+
+    # run the ABM once per row of paramMatrix
+    files, error_runs = [], []
+    for run in range(len(paramMatrix)):
+        # progress display, 25 runs per line
+        print(f'{run} ', end='', flush=True)
+        if (run + 1) % 25 == 0:
+            print()
+
+        # full parameter set for this run: fixed values plus sampled values
+        values = {**modelSettings.fixed, **dict(zip(names, paramMatrix[run]))}
+
+        # run the ABM; a failed run is recorded and treated as a failed run
+        try:
+            files.append(run_ABM(modelSettings, values, run, iter_dir))
+        except Exception as err:
+            files.append(None)
+            error_runs.append({'run': run, 'message': str(err), 'id': type(err).__name__})
+    print()
+
+    if error_runs:
+        print(f'{len(error_runs)} of {len(paramMatrix)} runs failed (see logs in {iter_dir})')
+
+    # collect every run's output into timepoints x runs arrays
+    model_out, days = read_outputs(files)
+
+    # runs must cover the time span set in model_settings
+    if len(days) != len(modelSettings.tspan):
+        raise ValueError(f"model output has {len(days)} timepoints, expected "
+                         f"{len(modelSettings.tspan)} (check t_end and the ABM's run length)")
+
+    return model_out, days, paramMatrix, names, error_runs
+
+
+def run_ABM(modelSettings, values, run, iter_dir):
+    """
+    Run the external ABM once with the given parameter values, using the
+    config writer and ABM call from ABM.py (ABM-NM-optimization repo).
+
+    Parameters
+    ----------
+    modelSettings : SimpleNamespace
+        settings from model_settings (base_config, condition, tspan).
+    values : dict
+        {parameter name: value} for every parameter (fixed and varied).
     run : int
-        run index.
-    y : numpy array
-        model output for this run.
+        run index (row of paramMatrix).
+    iter_dir : str
+        folder for this iteration's runs.
 
     Returns
     -------
-    dict
-        Updated model_out dictionary
+    biomarkers : str
+        path to this run's Output_Biomarkers.csv.
 
     """
-    for o in range(len(model_out)):
-        model_out[o][:, run] = y[:, o]
-    
-    return model_out
-    
-def init_vars(output_count, time_point_count, run_count):
-    """
-    Pre-allocate the output data structure for speed.
-    
-    Parameters:
-    -----------
-    output_count : int
-        The number of model outputs, the same as the number of model
-        equations and model initial conditions.
-    
-    time_point_count : int
-        The number of model output time points for each model run.
-    
-    run_count : int
-        The number of model runs.
-    
-    Returns:
-    --------
-    list
-        A list that has 1 element per model output. Each element for
-        a model output is a matrix with time_point_count rows and run_count
-        columns. Column r is the model results for that model output for
-        all time points for run r. Row t is the model results for that
-        model output for time point t for all runs.
-    """
-    model_out = []
-    for o in range(output_count):
-        model_out.append(np.zeros((time_point_count, run_count)))
-    
-    return model_out
+    template = Path(modelSettings.base_config)
 
-def save_error(model_out, run, y, tspan):
-    """
-    Save error case by padding output with last value.
-    
-    Parameters:
-    -----------
-    model_out : list
-        List of numpy arrays, one per output variable.
-        Each array has shape (time_point_count, run_count).
-    run : int
-        Run index (0-based)
-    y : numpy.ndarray
-        Partial model output with shape (partial_time_points, output_count)
-    tspan : numpy.ndarray
-        Full time span
-    
-    Returns:
-    --------
-    list
-        Updated ode_out list
-    """
-    if len(y) > 0 and y.shape[0] > 0:
-        # Pad with last value to match expected length
-        num_missing = len(tspan) - y.shape[0]
-        last_value = y[-1, :]  # Shape: (output_count,)
-        
-        # Create padding by repeating the last value
-        padding = np.tile(last_value, (num_missing, 1))
-        y_padded = np.vstack([y, padding])
-        
-        # Store padded results for each output variable
-        for o in range(len(model_out)):
-            model_out[o][:, run] = y_padded[:, o]
-    else:
-        # No output at all - fill with NaNs
-        for o in range(len(model_out)):
-            model_out[o][:, run] = np.nan
-    
-    return model_out
-    
+    # private working directory, so runs never share an output file
+    workdir = prepare_workdir(Path(iter_dir) / f"run{run}")
+    config_file = workdir / "configFiles" / "simulation_config.json"
 
+    # template parameters, in template order; every one needs a value
+    names = get_template_parameter_paths(template)
+    missing = [n for n in names if n not in values]
+    if missing:
+        raise KeyError(f"no value for template parameter(s) {missing}; check parameters.xlsx")
+
+    # this run's config: the template with this run's values and scaffold condition
+    create_sample_file([values[n] for n in names], template, config_file,
+                       parameter_names=names, condition=modelSettings.condition)
+
+    # run the ABM; raises if it exits with an error or writes no output
+    # numticks = number of rows written (ticks 0..numticks-1), so it equals len(tspan)
+    biomarkers = abm_run_ABM(config_file, numticks=len(modelSettings.tspan), workdir=workdir)
+
+    return str(biomarkers)
