@@ -37,6 +37,7 @@ def model_settings(param_file="parameters.xlsx"):
         equivalent of MATLAB 'structure' with the following
         attributes/members:
             NR -- number of times to run the model
+            reps -- numer of replicates of ABM per param set
             tspan -- vector of time points / number of ticks to run model
             analysisTimePoints -- vector of time points / number of ticks to
                                   perform analysis for
@@ -44,8 +45,10 @@ def model_settings(param_file="parameters.xlsx"):
                       {name: {'distribution', 'lower', 'upper'}}.
                       CaliPro updates the bounds each iteration.
             fixed -- dict of fixed params from read_params {name: value}
-            outputLabels -- array with string labels for each model output.
-                            usually use the default of O1, O2,
+            base_config -- ABM config template that each run's config is built
+                            from
+            condition -- scaffold condition applied to every run 
+                        ('high' or 'low')
             
             
 
@@ -66,6 +69,10 @@ def model_settings(param_file="parameters.xlsx"):
 
     # Get the model parameters: name, default value, distribution, upper bound, lower bound
     m.params, m.fixed = read_params(param_file)
+    
+    # how the ABM is run (see model_run and ABM.py)
+    m.base_config = "simulation_config.template.json"
+    m.condition = "high"
     
     # at least 2 runs, or there is nothing to compare between pass and fail
     if m.NR < 2:
