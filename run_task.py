@@ -4,7 +4,11 @@ Created on Fri Oct 23 14:43:48 2026
 
 @author: mm07
 
-Runs one ABM execution from a workdir prepared by model_run
+Runs one ABM execution from a workdir prepared by model_run.
+
+Used by model_run directly if local job, by calipro_array_job.sh
+if slurm job.
+    python -m calipro.run_task <iteration dir> <task id>
 
 """
 
