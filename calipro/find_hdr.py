@@ -9,7 +9,7 @@ by Rob Hyndman in 1996. https://doi.org/10.1080/00031305.1996.10474359
 
 """
 import numpy as np
-from ks_density import ks_density
+from calipro.ks_density import ks_density
 
 def find_hdr(passed, failed, coverage):
     """

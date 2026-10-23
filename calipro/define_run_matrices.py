@@ -8,7 +8,7 @@ TThis file makes the param matrix for one CaliPro iteration.
 
 """
 import numpy as np
-from lhs_unif import lhs_unif
+from calipro.lhs_unif import lhs_unif
 
 
 def define_run_matrices(modelSettings, rng=None):

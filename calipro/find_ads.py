@@ -10,7 +10,7 @@ https://doi.org/10.1007/s12195-020-00650-z
 
 """
 import numpy as np
-from ks_density import ks_density
+from calipro.ks_density import ks_density
 
 def find_ads(passed, failed, coverage=None):
     """

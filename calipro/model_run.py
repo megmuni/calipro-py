@@ -13,9 +13,9 @@ import os
 import subprocess
 from pathlib import Path
 from ABM import create_sample_file, get_template_parameter_paths, prepare_workdir
-from define_run_matrices import define_run_matrices
-from read_outputs import read_outputs
-from run_task import run_task
+from calipro.define_run_matrices import define_run_matrices
+from calipro.read_outputs import read_outputs
+from calipro.run_task import run_task
 
 # output file each run's ABM writes, inside its workdir
 BIOMARKERS = Path("output") / "Output_Biomarkers.csv"
