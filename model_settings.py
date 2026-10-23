@@ -59,7 +59,7 @@ def model_settings(param_file="parameters.xlsx"):
     m = SimpleNamespace()
     
     #sample size / number of times to run the model per iteration
-    m.NR = 5
+    m.NR = 15
     
     #replicates of ABM per param set (total runs = NR * reps)
     m.reps = 2
@@ -80,7 +80,7 @@ def model_settings(param_file="parameters.xlsx"):
     # how the runs are executed ('slurm' job array or 'local' one after another)
     m.executor = "slurm"
     m.job_script = "calipro_array_job.sh"
-    m.array_cap = 15
+    m.array_cap = 30
 
     
     # at least 2 runs, or there is nothing to compare between pass and fail
