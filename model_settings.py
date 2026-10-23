@@ -13,7 +13,7 @@ contains the model to be run (e.g., equations for an ODE, or function calls
 
 """
 from types import SimpleNamespace
-from read_params import read_params
+from calipro.read_params import read_params
 #from default_output_labels import default_output_labels
 
 

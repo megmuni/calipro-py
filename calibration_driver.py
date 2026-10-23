@@ -19,12 +19,13 @@ maximum number of iterations is reached.
 import copy
 import os
 import pickle
+from datetime import datetime
 import numpy as np
 from model_settings import model_settings
-from model_run import model_run
-from eval_model_performance import eval_model_performance, at_day
-from find_ads import find_ads
-from find_hdr import find_hdr
+from calipro.model_run import model_run
+from calipro.eval_model_performance import eval_model_performance, at_day
+from calipro.find_ads import find_ads
+from calipro.find_hdr import find_hdr
 
 
 #############################################################
@@ -52,7 +53,10 @@ pass_criteria_initial = 2.0
 pass_criteria_non_initial = 1.25
 
 # where configs, logs, outputs and results are saved
-out_dir = "output/Calibration"
+# each calipro attempt has its own folder
+out_dir = os.environ.get("CALIPRO_OUT_DIR",
+                         f"output/Calibration_{datetime.now():%Y-%m-%d_%H-%M-%S}")
+print(f'Saving to {out_dir}')
 
 
 def make_criteria(c):
