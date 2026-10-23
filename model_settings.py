@@ -49,17 +49,20 @@ def model_settings(param_file="parameters.xlsx"):
                             from
             condition -- scaffold condition applied to every run 
                         ('high' or 'low')
-            
-            
+            executor -- 'slurm' (one array task per run) or 'local' (one after
+                        another in this process, which then needs a GPU)
+            job_script -- Slurm script for one array task
+            array_cap -- most array tasks running at once
 
+    
     """
     m = SimpleNamespace()
     
     #sample size / number of times to run the model per iteration
-    m.NR = 10
+    m.NR = 5
     
     #replicates of ABM per param set (total runs = NR * reps)
-    m.reps = 3
+    m.reps = 2
     
     #time span of the simulation
     t_end = 7 # length of simulation in days (21 for full runs)
@@ -74,12 +77,21 @@ def model_settings(param_file="parameters.xlsx"):
     m.base_config = "simulation_config.template.json"
     m.condition = "high"
     
+    # how the runs are executed ('slurm' job array or 'local' one after another)
+    m.executor = "slurm"
+    m.job_script = "calipro_array_job.sh"
+    m.array_cap = 15
+
+    
     # at least 2 runs, or there is nothing to compare between pass and fail
     if m.NR < 2:
         raise ValueError(f"NR must be at least 2, got {m.NR}")
         # at least one run per parameter set
     if m.reps < 1:
         raise ValueError(f"reps must be at least 1, got {m.reps}")
+        # array cap must allow at least one task
+    if m.array_cap < 1:
+        raise ValueError(f"array_cap must be at least 1, got {m.array_cap}")
     # analysis ticks must be ticks the model records
     if not set(m.analysisTimePoints) <= set(m.tspan):
         raise ValueError("analysisTimePoints must all be in tspan")
