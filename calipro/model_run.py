@@ -150,7 +150,7 @@ def prepare_run(modelSettings, values, template_names, workdir):
                        condition=modelSettings.condition)
  
     # how to run it: numticks = number of rows written (ticks 0..numticks-1)
-    task = {'config': str(config_file.resolve()), 'numticks': len(modelSettings.tspan)}
+    task = {'config': str(config_file.resolve()), 'numticks': modelSettings.tspan[-1]}
     if getattr(modelSettings, 'world', None) is not None:
         task['world'] = list(modelSettings.world)
     with open(workdir / "task.json", "w") as f:
