@@ -10,6 +10,7 @@
 set -euo pipefail
 
 module load StdEnv/2023 gcc/12.3 python/3.11
+chmod +x bin/testRun
 
 source "$HOME/calipro_env/bin/activate"
 
