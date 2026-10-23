@@ -15,4 +15,4 @@ source "$HOME/calipro_env/bin/activate"
 # ABM needs GPU so this line will fail the job if the task didn't get one
 nvidia-smi -L > /dev/null || { echo "No GPU visible in task $SLURM_ARRAY_TASK_ID"; exit 1; }
 
-python run_task.py "$1" "$SLURM_ARRAY_TASK_ID"
+python -m calipro.run_task "$1" "$SLURM_ARRAY_TASK_ID"
