@@ -49,6 +49,7 @@ def run_task(workdir):
  
  
 if __name__ == "__main__":
-    # array task: run iteration_dir/run{task id}
-    iter_dir, task_id = sys.argv[1], int(sys.argv[2])
-    run_task(Path(iter_dir) / f"run{task_id}")
+    # array task t: run the workdir on line t of the iteration's task list
+    iter_dir, task_id = Path(sys.argv[1]), int(sys.argv[2])
+    workdirs = (iter_dir / "tasks.txt").read_text().split()
+    run_task(iter_dir / workdirs[task_id])

@@ -61,8 +61,10 @@ print(f'Saving to {out_dir}')
 
 def make_criteria(c):
     """
-    Pass set definition for one iteration. c loosens windows built from
-    experimental data: [min / c, max * c]. EDIT for your data and checks.
+    Pass set definition for one iteration. Criteria are defined for each scaffold
+    condition in model_settings (m.conditions). A sample passes only if it meets 
+    its criteria per condition for all conditions. c loosens windows built from
+    experimental data: [min / c, max * c].
 
     Parameters
     ----------
@@ -71,22 +73,38 @@ def make_criteria(c):
 
     Returns
     -------
-    criteria : list
-        criteria for eval_model_performance (bounds or functions).
+    criteria : dict
+        {condition: list of criteria} for eval_model_performance (bounds or
+        functions)
+
 
     """
-    # EXAMPLE criteria for 7-day test runs; replace with your own
-    cells_day7 = [1100, 1200, 1150]   # experimental values on day 7
-    return [
-        # window around experimental data
-        {'output': 'Total Cells', 'day': 7,
-         'min': min(cells_day7) / c, 'max': max(cells_day7) * c},
-        # threshold
-        {'output': 'Viability Rate(%)', 'day': 7, 'min': 20},
-        # trend
-        lambda out, days: at_day(out, days, 'Collagen (ug)', 7) > at_day(out, days, 'Collagen (ug)', 1),
-    ]
-
+    # define your criteria here
+    # experimental fold change (day 21 cells divided by day 1 cells), one entry per sample
+    high_fold_change = [0.80, 1.11, 1.09, 1.07, 1.11, 1.25, 0.85] # high MW
+    low_fold_change = [1.09, 0.37, 1.15, 1.28, 1.44, 0.76, 0.73] # low MW
+    return {
+        'high': [
+            lambda out, days: ( # window around experimental cell fold change data
+                (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) >= min(high_fold_change) / c)
+                & (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) <= max(high_fold_change) * c)
+            ),
+            
+            # threshold
+            {'output': 'Viability Rate(%)', 'day': 7, 'min': 20},
+        ],
+        'low': [
+            lambda out, days: ( # window around experimental cell fold change data
+                (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) >= min(low_fold_change) / c)
+                & (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) <= max(low_fold_change) * c)
+            ),
+            {'output': 'Total Cells', 'day': 7,
+             'min': min(low_cells_day7) / c, 'max': max(low_cells_day7) * c},
+            
+            # trend
+            lambda out, days: at_day(out, days, 'Collagen (ug)', 7) > at_day(out, days, 'Collagen (ug)', 1),
+        ],
+    }
 
 #############################################################
 #   Calibration loop
@@ -117,12 +135,12 @@ for runIteration in range(1, max_iter + 1):
               'error_runs': error_runs, 'densities': {}}
     results.append(record)
 
-    # termination criterion met: calibration complete
+    # termination criterion met -> calibration complete
     if frac_passed >= terminate:
         print('Calibration complete according to user specifications')
         break
 
-    # no passed runs: nothing to refine from
+    # no passed runs -> nothing to refine from
     if len(passed_params) == 0:
         print('No runs passed. Check initial parameter ranges, the pass set '
               'definition, or the model.')

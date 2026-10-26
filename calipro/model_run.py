@@ -19,6 +19,8 @@ from calipro.run_task import run_task
 
 # output file each run's ABM writes, inside its workdir
 BIOMARKERS = Path("output") / "Output_Biomarkers.csv"
+# file listing each array task's workdir, one per line (see run_task)
+TASK_LIST = "tasks.txt"
 
 def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
     """
@@ -38,7 +40,7 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
     Returns
     -------
     model_out : dict
-        {output name: timepoints x runs array}. NaN for failed runs
+        {condition: {output name: timepoints x samples array}}. NaN for failed runs
     days : ndarray
         day of each timepoint (row)
     paramMatrix : ndarray
@@ -46,7 +48,7 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
     names : list
         varied parameter names, in the column order of paramMatrix
     error_runs : list of dict
-        {'run', 'message', 'id'} for each run that failed
+        {'run', 'condition', 'message'} for each run that failed
 
     """
     print('\n=====================================')
@@ -56,60 +58,73 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
     # sample parameter sets (rows repeated for replicates)
     paramMatrix, names = define_run_matrices(modelSettings, rng)
     nruns = len(paramMatrix)
+    conditions = modelSettings.conditions
 
     # folder for this iteration's configs, logs and outputs
     iter_dir = Path(out_dir) / f"iteration_{runIteration}"
     iter_dir.mkdir(parents=True, exist_ok=True)
     
+    # every ABM run of this iteration: one per sample and condition
+    tasks = [(run, cond) for run in range(nruns) for cond in conditions]
+    
     # 1. prepare: one workdir and config per row of paramMatrix
     template_names = get_template_parameter_paths(Path(modelSettings.base_config))
-    for run in range(nruns):
+    for run, cond in tasks:
         values = {**modelSettings.fixed, **dict(zip(names, paramMatrix[run]))}
-        prepare_run(modelSettings, values, template_names, iter_dir / f"run{run}")
-
+        prepare_run(modelSettings, values, template_names, cond,
+                    iter_dir / run_name(run, cond))
 
     # 2. execute
     if modelSettings.executor == "local":
-        # one after another in this process (needs a GPU in this job)
-        for run in range(nruns):
-            print(f'{run} ', end='', flush=True)
-            if (run + 1) % 25 == 0:
+       # one after another in this process (needs a GPU in this job)
+        for t, (run, cond) in enumerate(tasks):
+            print(f'{t} ', end='', flush=True)
+            if (t + 1) % 25 == 0:
                 print()
             try:
-                run_task(iter_dir / f"run{run}")
+                run_task(iter_dir / run_name(run, cond))
             except Exception:
                 pass  # recorded in the run's error.txt; collected below
         print()
     elif modelSettings.executor == "slurm":
         # one array task per run, each with its own GPU slice
-        submit_array(modelSettings, iter_dir, nruns)
+        submit_array(modelSettings, iter_dir, len(tasks))
     else:
         raise ValueError(f"unknown executor '{modelSettings.executor}'; use 'local' or 'slurm'")
  
     # 3. collect: output file per run, or None (failed run) with the reason
-    files, error_runs = [], []
-    for run in range(nruns):
-        workdir = iter_dir / f"run{run}"
-        if (workdir / BIOMARKERS).exists():
-            files.append(str(workdir / BIOMARKERS))
-        else:
-            files.append(None)
-            error_runs.append({'run': run, 'message': failure_reason(workdir, iter_dir, run)})
+    model_out, days, error_runs = {}, None, []
+    for cond in conditions:
+        files = []
+        for run in range(nruns):
+            workdir = iter_dir / run_name(run, cond)
+            if (workdir / BIOMARKERS).exists():
+                files.append(str(workdir / BIOMARKERS))
+            else:
+                files.append(None)
+                t = tasks.index((run, cond))
+                error_runs.append({'run': run, 'condition': cond,
+                                   'message': failure_reason(workdir, iter_dir, t)})
+ 
+        # this condition's outputs as timepoints x samples arrays
+        model_out[cond], cond_days = read_outputs(files)
+ 
+        # runs must cover the time span set in model_settings
+        if len(cond_days) != len(modelSettings.tspan):
+            raise ValueError(f"{cond}: model output has {len(cond_days)} timepoints, expected "
+                             f"{len(modelSettings.tspan)} (check t_end and the ABM's run length)")
+        days = cond_days
  
     if error_runs:
-        print(f'{len(error_runs)} of {nruns} runs failed (see {iter_dir})')
- 
-    # collect every run's output into timepoints x runs arrays
-    model_out, days = read_outputs(files)
- 
-    # runs must cover the time span set in model_settings
-    if len(days) != len(modelSettings.tspan):
-        raise ValueError(f"model output has {len(days)} timepoints, expected "
-                         f"{len(modelSettings.tspan)} (check t_end and the ABM's run length)")
+        print(f'{len(error_runs)} of {len(tasks)} ABM runs failed (see {iter_dir})')
  
     return model_out, days, paramMatrix, names, error_runs
 
-def prepare_run(modelSettings, values, template_names, workdir):
+def run_name(run, cond):
+    """Workdir name of one ABM run: sample index and condition, e.g. run3_high."""
+    return f"run{run}_{cond}"
+
+def prepare_run(modelSettings, values, template_names, condition, workdir):
     """
     Set up one run's workdir: its config and a task.json describing how to
     run it (read by run_task, locally or in a Slurm array task).
@@ -117,13 +132,15 @@ def prepare_run(modelSettings, values, template_names, workdir):
     Parameters
     ----------
     modelSettings : SimpleNamespace
-        settings from model_settings (base_config, condition, tspan, world).
+        settings from model_settings (base_config, tspan, world)
     values : dict
-        {parameter name: value} for every parameter (fixed and varied).
+        {parameter name: value} for every parameter (fixed and varied)
     template_names : list
-        tagged parameter names, in template order.
+        tagged parameter names, in template order
+    condition : str
+        scaffold condition for this run ('high' or 'low')
     workdir : Path
-        this run's folder.
+        this run's folder
  
     Returns
     -------
@@ -147,7 +164,7 @@ def prepare_run(modelSettings, values, template_names, workdir):
     # this run's config: the template with this run's values and scaffold condition
     create_sample_file([values[n] for n in template_names], Path(modelSettings.base_config),
                        config_file, parameter_names=template_names,
-                       condition=modelSettings.condition)
+                       condition=condition)
  
     # how to run it: numticks = number of rows written (ticks 0..numticks-1)
     task = {'config': str(config_file.resolve()), 'numticks': modelSettings.tspan[-1]}

@@ -14,12 +14,12 @@ def eval_model_performance(criteria, model_out, days, paramMatrix):
     """
     This function evaluates model performance by comparing model run outcomes
     against experimental data/pass criteria provided by the user. A run passes only
-    if it satisfies every criterion. Each replicate is a separate run and passes or fails
-    on its own.
+    if its run under each condition satisfies every criterion for that condition.
+    Each replicate is a separate run and passes or fails on its own.
 
     Parameters
     ----------
-    criteria : list of dict or functions
+    criteria : dict
         the pass set definition. Each criterion is either
         - a bound: {'output': column name, 'day': day, 'min': lower, 'max': upper}.
           Leave out 'min' or 'max' (or set to None) for a one-sided criterion,
@@ -52,25 +52,34 @@ def eval_model_performance(criteria, model_out, days, paramMatrix):
         {output name: timepoints x failed runs} model output of failed runs.
 
     """
-    
+    # every condition run must have criteria, and every criteria set a run
+    if set(criteria) != set(model_out):
+        raise ValueError(f"criteria are for conditions {sorted(criteria)}, but runs are "
+                         f"for {sorted(model_out)}; they must match")
+
     # start with every run passing, then require each criterion
     passed = np.ones(paramMatrix.shape[0], dtype=bool)
-    for criterion in criteria:
-        # function criteria (trends, comparisons) decide pass/fail
-        if callable(criterion):
-            ok = np.asarray(criterion(model_out, days), dtype=bool)
-            if ok.shape != passed.shape:
-                raise ValueError(f"criterion {criterion} must return one True/False per run")
-        # bound criteria: one output on one day within min/max
-        else:
-            ok = check_criterion(criterion, model_out, days)
-        passed &= ok
-        
-    # split parameters and outputs into passed and failed runs
+    for cond, cond_criteria in criteria.items():
+            out = model_out[cond]
+            for criterion in cond_criteria:
+                # function criteria (trends, comparisons) decide pass/fail themselves
+                if callable(criterion):
+                    ok = np.asarray(criterion(out, days), dtype=bool)
+                    if ok.shape != passed.shape:
+                        raise ValueError(f"{cond}: criterion {criterion} must return one "
+                                         "True/False per sample")
+                # bound criteria: one output on one day within min/max
+                else:
+                    ok = check_criterion(criterion, out, days)
+                passed &= ok
+
+    # split parameters and outputs into passed and failed samples
     passed_params = paramMatrix[passed]
     failed_params = paramMatrix[~passed]
-    passed_runs = {name: out[:, passed] for name, out in model_out.items()}
-    failed_runs = {name: out[:, ~passed] for name, out in model_out.items()}
+    passed_runs = {cond: {name: o[:, passed] for name, o in out.items()}
+                   for cond, out in model_out.items()}
+    failed_runs = {cond: {name: o[:, ~passed] for name, o in out.items()}
+                   for cond, out in model_out.items()}
     
     return passed_params, passed_runs, failed_params, failed_runs
 

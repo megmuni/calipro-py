@@ -13,8 +13,8 @@ contains the model to be run (e.g., equations for an ODE, or function calls
 
 """
 from types import SimpleNamespace
+from ABM import CONDITIONS
 from calipro.read_params import read_params
-#from default_output_labels import default_output_labels
 
 
 def model_settings(param_file="parameters.xlsx"):
@@ -47,8 +47,8 @@ def model_settings(param_file="parameters.xlsx"):
             fixed -- dict of fixed params from read_params {name: value}
             base_config -- ABM config template that each run's config is built
                             from
-            condition -- scaffold condition applied to every run 
-                        ('high' or 'low')
+            conditions -- scaffold conditions every sample is run under (high or
+                          low; a sample must pass the criteria for each one
             executor -- 'slurm' (one array task per run) or 'local' (one after
                         another in this process, which then needs a GPU)
             job_script -- Slurm script for one array task
@@ -75,21 +75,25 @@ def model_settings(param_file="parameters.xlsx"):
     
     # how the ABM is run (see model_run and ABM.py)
     m.base_config = "simulation_config.template.json"
-    m.condition = "high"
+    m.conditions = ["high", "low"]
     
     # how the runs are executed ('slurm' job array or 'local' one after another)
     m.executor = "slurm"
     m.job_script = "calipro_array_job.sh"
-    m.array_cap = 30
+    m.array_cap = 50
 
     
     # at least 2 runs, or there is nothing to compare between pass and fail
     if m.NR < 2:
         raise ValueError(f"NR must be at least 2, got {m.NR}")
-        # at least one run per parameter set
+    # at least one run per parameter set
     if m.reps < 1:
         raise ValueError(f"reps must be at least 1, got {m.reps}")
-        # array cap must allow at least one task
+    # conditions must be ones ABM.py knows how to set in the template
+    unknown = [c for c in m.conditions if c not in CONDITIONS]
+    if not m.conditions or unknown:
+        raise ValueError(f"conditions must be from {CONDITIONS}, got {m.conditions}")
+    # array cap must allow at least one task
     if m.array_cap < 1:
         raise ValueError(f"array_cap must be at least 1, got {m.array_cap}")
     # analysis ticks must be ticks the model records
