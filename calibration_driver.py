@@ -21,6 +21,7 @@ import os
 import pickle
 from datetime import datetime
 import numpy as np
+from ABM import WORLD_VOLUME_MM3, GEL_VOLUME_MM3
 from model_settings import model_settings
 from calipro.model_run import model_run
 from calipro.eval_model_performance import eval_model_performance, at_day
@@ -63,6 +64,12 @@ out_dir = os.environ.get("CALIPRO_OUT_DIR",
                          f"output/Calibration_{datetime.now():%Y-%m-%d_%H-%M-%S}")
 print(f'Saving to {out_dir}')
 
+def to_world(values):
+    """
+    Convert whole-gel experimental amounts (e.g. sGAG, ug) to the volume the
+    ABM simulates, so they compare directly with its 'Aggrecan (ug)' output
+    """
+    return [v * WORLD_VOLUME_MM3 / GEL_VOLUME_MM3 for v in values]
 
 def make_criteria(c):
     """
@@ -90,13 +97,13 @@ def make_criteria(c):
     high_fold_change = [0.80, 1.11, 1.09, 1.07, 1.11, 1.25, 0.85] # high MW
     low_fold_change = [1.09, 0.37, 1.15, 1.28, 1.44, 0.76, 0.73] # low MW
 
-    # experimental sGAG (ug), one entry per sample
-    # high_agg_d7 = [36.91, 52.97, 55.78, 34.44]
-    # high_agg_d14 = [102.11, 13.49, 47.59, 59.17]
-    # high_agg_d21 = [111.88, 94.67, 37.10, 41.28]
-    # low_agg_d7 = [87.22, 51.62, 136.20, 52.13]
-    # low_agg_d14 = [130.80, 97.47, 90.61, 84.87]
-    # low_agg_d21 = [131.42, 131.09, 99.96, 100.93]
+    # experimental sGAG (ug), one entry per sample, but scaled to ABM world size
+    high_agg_d7 = to_world([36.91, 52.97, 55.78, 34.44])
+    high_agg_d14 = to_world([102.11, 13.49, 47.59, 59.17])
+    high_agg_d21 = to_world([111.88, 94.67, 37.10, 41.28])
+    low_agg_d7 = to_world([87.22, 51.62, 136.20, 52.13])
+    low_agg_d14 = to_world([130.80, 97.47, 90.61, 84.87])
+    low_agg_d21 = to_world([131.42, 131.09, 99.96, 100.93])
 
     # tolerance around single reported values (1.25 = within 25%), loosened by c
     tol = 1.25 ** c
@@ -112,9 +119,9 @@ def make_criteria(c):
             {'output': 'Viability Rate(%)', 'day': 21, 'min': 80},
 
             # aggrecan: window around experimental samples
-            # {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(high_agg_d7) / c, 'max': max(high_agg_d7) * c},
-            # {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(high_agg_d14) / c, 'max': max(high_agg_d14) * c},
-            # {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(high_agg_d21) / c, 'max': max(high_agg_d21) * c},
+            {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(high_agg_d7) / c, 'max': max(high_agg_d7) * c},
+            {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(high_agg_d14) / c, 'max': max(high_agg_d14) * c},
+            {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(high_agg_d21) / c, 'max': max(high_agg_d21) * c},
 
             # differentiation: within tolerance of the reported value
             {'output': 'Differentiation (%)', 'day': 7, 'min': 4 / tol, 'max': 4 * tol},
@@ -131,9 +138,9 @@ def make_criteria(c):
             # threshold
             {'output': 'Viability Rate(%)', 'day': 21, 'min': 80},
 
-            # {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(low_agg_d7) / c, 'max': max(low_agg_d7) * c},
-            # {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(low_agg_d14) / c, 'max': max(low_agg_d14) * c},
-            # {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(low_agg_d21) / c, 'max': max(low_agg_d21) * c},
+            {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(low_agg_d7) / c, 'max': max(low_agg_d7) * c},
+            {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(low_agg_d14) / c, 'max': max(low_agg_d14) * c},
+            {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(low_agg_d21) / c, 'max': max(low_agg_d21) * c},
 
             {'output': 'Differentiation (%)', 'day': 7, 'min': 10 / tol, 'max': 10 * tol},
             {'output': 'Differentiation (%)', 'day': 14, 'min': 40 / tol, 'max': 40 * tol},
