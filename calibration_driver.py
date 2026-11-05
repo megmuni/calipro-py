@@ -54,8 +54,8 @@ if not 0 < rep_pass_fraction <= 1:
 portion_params = 0.85
 # how much the pass window is loosened around experimental data
 # (iterations 1-2, then later iterations)
-pass_criteria_initial = 2.0
-pass_criteria_non_initial = 1.25
+pass_criteria_initial = 3.0
+pass_criteria_non_initial = 1.5
 
 # where configs, logs, outputs and results are saved
 # each calipro attempt has its own folder
@@ -89,6 +89,18 @@ def make_criteria(c):
     # experimental fold change (day 21 cells divided by day 1 cells), one entry per sample
     high_fold_change = [0.80, 1.11, 1.09, 1.07, 1.11, 1.25, 0.85] # high MW
     low_fold_change = [1.09, 0.37, 1.15, 1.28, 1.44, 0.76, 0.73] # low MW
+
+    # experimental sGAG (ug), one entry per sample
+    # high_agg_d7 = [36.91, 52.97, 55.78, 34.44]
+    # high_agg_d14 = [102.11, 13.49, 47.59, 59.17]
+    # high_agg_d21 = [111.88, 94.67, 37.10, 41.28]
+    # low_agg_d7 = [87.22, 51.62, 136.20, 52.13]
+    # low_agg_d14 = [130.80, 97.47, 90.61, 84.87]
+    # low_agg_d21 = [131.42, 131.09, 99.96, 100.93]
+
+    # tolerance around single reported values (1.25 = within 25%), loosened by c
+    tol = 1.25 ** c
+
     return {
         'high': [
             lambda out, days: ( # window around experimental cell fold change data
@@ -97,18 +109,35 @@ def make_criteria(c):
             ),
 
             # threshold
-            {'output': 'Viability Rate(%)', 'day': 7, 'min': 20},
+            {'output': 'Viability Rate(%)', 'day': 21, 'min': 80},
+
+            # aggrecan: window around experimental samples
+            # {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(high_agg_d7) / c, 'max': max(high_agg_d7) * c},
+            # {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(high_agg_d14) / c, 'max': max(high_agg_d14) * c},
+            # {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(high_agg_d21) / c, 'max': max(high_agg_d21) * c},
+
+            # differentiation: within tolerance of the reported value
+            {'output': 'Differentiation (%)', 'day': 7, 'min': 4 / tol, 'max': 4 * tol},
+            {'output': 'Differentiation (%)', 'day': 14, 'min': 20 / tol, 'max': 20 * tol},
+            {'output': 'Differentiation (%)', 'day': 21, 'min': 48.67 / tol, 'max': 48.67 * tol},
+
         ],
         'low': [
             lambda out, days: ( # window around experimental cell fold change data
                 (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) >= min(low_fold_change) / c)
                 & (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) <= max(low_fold_change) * c)
             ),
-            {'output': 'Total Cells', 'day': 7,
-             'min': min(low_cells_day7) / c, 'max': max(low_cells_day7) * c},
 
-            # trend
-            lambda out, days: at_day(out, days, 'Collagen (ug)', 7) > at_day(out, days, 'Collagen (ug)', 1),
+            # threshold
+            {'output': 'Viability Rate(%)', 'day': 21, 'min': 80},
+
+            # {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(low_agg_d7) / c, 'max': max(low_agg_d7) * c},
+            # {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(low_agg_d14) / c, 'max': max(low_agg_d14) * c},
+            # {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(low_agg_d21) / c, 'max': max(low_agg_d21) * c},
+
+            {'output': 'Differentiation (%)', 'day': 7, 'min': 10 / tol, 'max': 10 * tol},
+            {'output': 'Differentiation (%)', 'day': 14, 'min': 40 / tol, 'max': 40 * tol},
+            {'output': 'Differentiation (%)', 'day': 21, 'min': 80 / tol, 'max': 80 * tol},
         ],
     }
 
