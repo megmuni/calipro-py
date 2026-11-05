@@ -63,16 +63,19 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
     # folder for this iteration's configs, logs and outputs
     iter_dir = Path(out_dir) / f"iteration_{runIteration}"
     iter_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # every ABM run of this iteration: one per sample and condition
     tasks = [(run, cond) for run in range(nruns) for cond in conditions]
-    
+
     # 1. prepare: one workdir and config per row of paramMatrix
     template_names = get_template_parameter_paths(Path(modelSettings.base_config))
     for run, cond in tasks:
         values = {**modelSettings.fixed, **dict(zip(names, paramMatrix[run]))}
         prepare_run(modelSettings, values, template_names, cond,
                     iter_dir / run_name(run, cond))
+    # task list for the job array: line t is the workdir of task t
+    with open(iter_dir / TASK_LIST, "w") as f:
+        f.writelines(run_name(run, cond) + "\n" for run, cond in tasks)
 
     # 2. execute
     if modelSettings.executor == "local":
@@ -91,7 +94,7 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
         submit_array(modelSettings, iter_dir, len(tasks))
     else:
         raise ValueError(f"unknown executor '{modelSettings.executor}'; use 'local' or 'slurm'")
- 
+
     # 3. collect: output file per run, or None (failed run) with the reason
     model_out, days, error_runs = {}, None, []
     for cond in conditions:
@@ -105,19 +108,19 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
                 t = tasks.index((run, cond))
                 error_runs.append({'run': run, 'condition': cond,
                                    'message': failure_reason(workdir, iter_dir, t)})
- 
+
         # this condition's outputs as timepoints x samples arrays
         model_out[cond], cond_days = read_outputs(files)
- 
+
         # runs must cover the time span set in model_settings
         if len(cond_days) != len(modelSettings.tspan):
             raise ValueError(f"{cond}: model output has {len(cond_days)} timepoints, expected "
                              f"{len(modelSettings.tspan)} (check t_end and the ABM's run length)")
         days = cond_days
- 
+
     if error_runs:
         print(f'{len(error_runs)} of {len(tasks)} ABM runs failed (see {iter_dir})')
- 
+
     return model_out, days, paramMatrix, names, error_runs
 
 def run_name(run, cond):
@@ -128,7 +131,7 @@ def prepare_run(modelSettings, values, template_names, condition, workdir):
     """
     Set up one run's workdir: its config and a task.json describing how to
     run it (read by run_task, locally or in a Slurm array task).
- 
+
     Parameters
     ----------
     modelSettings : SimpleNamespace
@@ -141,43 +144,43 @@ def prepare_run(modelSettings, values, template_names, condition, workdir):
         scaffold condition for this run ('high' or 'low')
     workdir : Path
         this run's folder
- 
+
     Returns
     -------
     None.
- 
+
     """
     # every template parameter needs a value
     missing = [n for n in template_names if n not in values]
     if missing:
         raise KeyError(f"no value for template parameter(s) {missing}; check parameters.xlsx")
- 
+
     # private working directory, so runs never share an output file
     workdir = prepare_workdir(workdir)
     config_file = workdir / "configFiles" / "simulation_config.json"
- 
+
     # remove anything left from an earlier attempt at this run
     for old in [workdir / BIOMARKERS, workdir / "error.txt"]:
         if old.exists():
             old.unlink()
- 
+
     # this run's config: the template with this run's values and scaffold condition
     create_sample_file([values[n] for n in template_names], Path(modelSettings.base_config),
                        config_file, parameter_names=template_names,
                        condition=condition)
- 
+
     # how to run it: numticks = number of rows written (ticks 0..numticks-1)
     task = {'config': str(config_file.resolve()), 'numticks': modelSettings.tspan[-1]}
     if getattr(modelSettings, 'world', None) is not None:
         task['world'] = list(modelSettings.world)
     with open(workdir / "task.json", "w") as f:
         json.dump(task, f, indent=2)
- 
- 
+
+
 def submit_array(modelSettings, iter_dir, nruns):
     """
     Submit one Slurm array task per run and wait until all have finished.
- 
+
     Parameters
     ----------
     modelSettings : SimpleNamespace
@@ -186,26 +189,26 @@ def submit_array(modelSettings, iter_dir, nruns):
         this iteration's folder (each task runs iter_dir/run{task id}).
     nruns : int
         number of runs (array tasks).
- 
+
     Returns
     -------
     None.
- 
+
     """
     # tasks 0..nruns-1, at most array_cap running at once; one log per task
     cmd = ["sbatch", "--wait", f"--array=0-{nruns - 1}%{modelSettings.array_cap}",
            f"--output={iter_dir}/slurm_%a.out", modelSettings.job_script, str(iter_dir)]
     print(f'Submitting {nruns} runs as a job array (at most {modelSettings.array_cap} at once)...')
     result = subprocess.run(cmd, capture_output=True, text=True)
- 
+
     # submission itself failed (e.g. bad account or script): nothing ran
     if "Submitted batch job" not in result.stdout:
         raise RuntimeError(f"sbatch failed to submit the array:\n{result.stderr}")
- 
+
     # --wait returns non-zero if any task failed; those runs are collected as failed
     print(f'Job array finished ({result.stdout.strip()})')
- 
- 
+
+
 def failure_reason(workdir, iter_dir, run):
     """
     Why a run has no output: its error.txt if it got that far, otherwise
