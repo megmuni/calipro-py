@@ -45,6 +45,11 @@ hdr = False
 max_iter = 10
 # fraction of runs that must pass for calibration to be complete
 terminate = 0.90
+# fraction of a parameter set's replicates that must pass each condition for
+# the set to pass (with 3 replicates, 2/3 means 2 of 3)
+rep_pass_fraction = 2 / 3
+if not 0 < rep_pass_fraction <= 1:
+    raise ValueError(f"rep_pass_fraction must be in (0, 1], got {rep_pass_fraction}")
 # HDR coverage: portion of the pass density kept in each new range
 portion_params = 0.85
 # how much the pass window is loosened around experimental data
@@ -62,9 +67,10 @@ print(f'Saving to {out_dir}')
 def make_criteria(c):
     """
     Pass set definition for one iteration. Criteria are defined for each scaffold
-    condition in model_settings (m.conditions). A sample passes only if it meets 
-    its criteria per condition for all conditions. c loosens windows built from
-    experimental data: [min / c, max * c].
+    condition in model_settings (m.conditions). A replicate passes a condition
+    if it meets every criterion of that condition; a parameter set passes if,
+    for every condition, at least rep_pass_fraction of its replicates pass.
+    c loosens windows built from experimental data: [min / c, max * c]
 
     Parameters
     ----------
@@ -89,7 +95,7 @@ def make_criteria(c):
                 (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) >= min(high_fold_change) / c)
                 & (at_day(out, days, 'Total Cells', 21) / at_day(out, days, 'Total Cells', 1) <= max(high_fold_change) * c)
             ),
-            
+
             # threshold
             {'output': 'Viability Rate(%)', 'day': 7, 'min': 20},
         ],
@@ -100,7 +106,7 @@ def make_criteria(c):
             ),
             {'output': 'Total Cells', 'day': 7,
              'min': min(low_cells_day7) / c, 'max': max(low_cells_day7) * c},
-            
+
             # trend
             lambda out, days: at_day(out, days, 'Collagen (ug)', 7) > at_day(out, days, 'Collagen (ug)', 1),
         ],
@@ -121,15 +127,18 @@ for runIteration in range(1, max_iter + 1):
     # pass criteria are stricter after the first two iterations
     c = pass_criteria_initial if runIteration <= 2 else pass_criteria_non_initial
     passed_params, passed_runs, failed_params, failed_runs = \
-        eval_model_performance(make_criteria(c), model_out, days, paramMatrix)
+        eval_model_performance(make_criteria(c), model_out, days, paramMatrix,
+                               m.reps, rep_pass_fraction)
 
-    frac_passed = len(passed_params) / len(paramMatrix)
-    print(f'Iteration {runIteration}: {len(passed_params)} of {len(paramMatrix)} runs '
-          f'passed ({frac_passed:.0%})')
+    nsets = len(passed_params) + len(failed_params)
+    frac_passed = len(passed_params) / nsets
+    print(f'Iteration {runIteration}: {len(passed_params)} of {nsets} parameter sets '
+          f'passed all conditions ({frac_passed:.0%})')
 
     # record this iteration (ranges sampled, runs, pass/fail split)
     record = {'iteration': runIteration, 'names': names,
               'params': copy.deepcopy(m.params), 'paramMatrix': paramMatrix,
+              'reps': m.reps,
               'passed_params': passed_params, 'failed_params': failed_params,
               'frac_passed': frac_passed, 'pass_criteria': c,
               'error_runs': error_runs, 'densities': {}}
