@@ -13,7 +13,7 @@ module load StdEnv/2023 gcc/12.3 python/3.11
 source "$HOME/calipro_env/bin/activate"
 
 # where the ABM's shared libraries are (libAgent.so)
-export LD_LIBRARY_PATH="/lustre09/project/6008013/meghana7/IVDBM-ABM/build/lib/:${LD_LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH="/lustre09/project/6008013/meghana7/IVDBM-ABM/build/lib:/lustre09/project/6008013/meghana7/IVDBM-ABM/lib/libDiffusion.so:${LD_LIBRARY_PATH:-}"
 
 # ABM needs GPU so this line will fail the job if the task didn't get one
 nvidia-smi -L > /dev/null || { echo "No GPU visible in task $SLURM_ARRAY_TASK_ID"; exit 1; }
