@@ -72,7 +72,7 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
     for run, cond in tasks:
         values = {**modelSettings.fixed, **dict(zip(names, paramMatrix[run]))}
         prepare_run(modelSettings, values, template_names, cond,
-                    iter_dir / run_name(run, cond))
+                    iter_dir / run_name(run, cond), run_seed(runIteration, run))   # ← seed added
     # task list for the job array: line t is the workdir of task t
     with open(iter_dir / TASK_LIST, "w") as f:
         f.writelines(run_name(run, cond) + "\n" for run, cond in tasks)
@@ -127,7 +127,18 @@ def run_name(run, cond):
     """Workdir name of one ABM run: sample index and condition, e.g. run3_high."""
     return f"run{run}_{cond}"
 
-def prepare_run(modelSettings, values, template_names, condition, workdir):
+def run_seed(runIteration, run):
+    """
+    ABM random seed (IVDBM_SEED) for one run: different for every replicate
+    and iteration, so replicates differ and the calibration is not tied to a
+    few random streams. The same for a run's high and low conditions (common
+    random numbers), so differences between gels come from the gels, not
+    from chance. Reproducible: the same run in the same iteration always gets
+    the same seed.
+    """
+    return runIteration * 100000 + run
+
+def prepare_run(modelSettings, values, template_names, condition, workdir, seed):
     """
     Set up one run's workdir: its config and a task.json describing how to
     run it (read by run_task, locally or in a Slurm array task).
@@ -144,6 +155,8 @@ def prepare_run(modelSettings, values, template_names, condition, workdir):
         scaffold condition for this run ('high' or 'low')
     workdir : Path
         this run's folder
+    seed : int
+        ABM random seed for this run (passed to testRun as IVDBM_SEED).
 
     Returns
     -------
@@ -170,7 +183,8 @@ def prepare_run(modelSettings, values, template_names, condition, workdir):
                        condition=condition)
 
     # how to run it: numticks = number of rows written (ticks 0..numticks-1)
-    task = {'config': str(config_file.resolve()), 'numticks': modelSettings.tspan[-1]}
+    task = {'config': str(config_file.resolve()), 'numticks': modelSettings.tspan[-1],
+            'seed': int(seed)}
     if getattr(modelSettings, 'world', None) is not None:
         task['world'] = list(modelSettings.world)
     with open(workdir / "task.json", "w") as f:
