@@ -6,11 +6,14 @@
 #SBATCH --gpus=h100_1g.10gb:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G                        # EDIT if the ABM needs more
-#SBATCH --time=00:20:00                 # EDIT: comfortably above one run's time
+#SBATCH --time=00:40:00                 # EDIT: comfortably above one run's time
 set -euo pipefail
 
 module load StdEnv/2023 gcc/12.3 python/3.11
 source "$HOME/calipro_env/bin/activate"
+
+# where the ABM's shared libraries are (libAgent.so)
+export LD_LIBRARY_PATH="/lustre09/project/6008013/meghana7/IVDBM-ABM/build/lib/:${LD_LIBRARY_PATH:-}"
 
 # ABM needs GPU so this line will fail the job if the task didn't get one
 nvidia-smi -L > /dev/null || { echo "No GPU visible in task $SLURM_ARRAY_TASK_ID"; exit 1; }
