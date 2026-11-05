@@ -43,7 +43,7 @@ rng = np.random.default_rng(seed)
 # True: refine ranges with HDR. False: refine ranges with ADS
 hdr = False
 # maximum number of iterations
-max_iter = 10
+max_iter = 5
 # fraction of runs that must pass for calibration to be complete
 terminate = 0.90
 # fraction of a parameter set's replicates that must pass each condition for
