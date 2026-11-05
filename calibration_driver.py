@@ -62,7 +62,6 @@ pass_criteria_non_initial = 1.5
 # each calipro attempt has its own folder
 out_dir = os.environ.get("CALIPRO_OUT_DIR",
                          f"output/Calibration_{datetime.now():%Y-%m-%d_%H-%M-%S}")
-print(f'Saving to {out_dir}')
 
 def to_world(values):
     """
@@ -151,82 +150,89 @@ def make_criteria(c):
 #############################################################
 #   Calibration loop
 #############################################################
-os.makedirs(out_dir, exist_ok=True)
-results = []
+def main():
+    """Run the calibration main loop"""
+    print(f'Saving to {out_dir}')
 
-for runIteration in range(1, max_iter + 1):
+    os.makedirs(out_dir, exist_ok=True)
+    results = []
 
-    #   2-3. Sample parameters and run the model
-    model_out, days, paramMatrix, names, error_runs = model_run(m, runIteration, rng, out_dir)
+    for runIteration in range(1, max_iter + 1):
 
-    #   3. Evaluate runs against the pass set definition
-    # pass criteria are stricter after the first two iterations
-    c = pass_criteria_initial if runIteration <= 2 else pass_criteria_non_initial
-    passed_params, passed_runs, failed_params, failed_runs = \
-        eval_model_performance(make_criteria(c), model_out, days, paramMatrix,
-                               m.reps, rep_pass_fraction)
+        #   2-3. Sample parameters and run the model
+        model_out, days, paramMatrix, names, error_runs = model_run(m, runIteration, rng, out_dir)
 
-    nsets = len(passed_params) + len(failed_params)
-    frac_passed = len(passed_params) / nsets
-    print(f'Iteration {runIteration}: {len(passed_params)} of {nsets} parameter sets '
-          f'passed all conditions ({frac_passed:.0%})')
+        #   3. Evaluate runs against the pass set definition
+        # pass criteria are stricter after the first two iterations
+        c = pass_criteria_initial if runIteration <= 2 else pass_criteria_non_initial
+        passed_params, passed_runs, failed_params, failed_runs = \
+            eval_model_performance(make_criteria(c), model_out, days, paramMatrix,
+                                   m.reps, rep_pass_fraction)
 
-    # record this iteration (ranges sampled, runs, pass/fail split)
-    record = {'iteration': runIteration, 'names': names,
-              'params': copy.deepcopy(m.params), 'paramMatrix': paramMatrix,
-              'reps': m.reps,
-              'passed_params': passed_params, 'failed_params': failed_params,
-              'frac_passed': frac_passed, 'pass_criteria': c,
-              'error_runs': error_runs, 'densities': {}}
-    results.append(record)
+        nsets = len(passed_params) + len(failed_params)
+        frac_passed = len(passed_params) / nsets
+        print(f'Iteration {runIteration}: {len(passed_params)} of {nsets} parameter sets '
+              f'passed all conditions ({frac_passed:.0%})')
 
-    # termination criterion met -> calibration complete
-    if frac_passed >= terminate:
-        print('Calibration complete according to user specifications')
-        break
+        # record this iteration (ranges sampled, runs, pass/fail split)
+        record = {'iteration': runIteration, 'names': names,
+                  'params': copy.deepcopy(m.params), 'paramMatrix': paramMatrix,
+                  'reps': m.reps,
+                  'passed_params': passed_params, 'failed_params': failed_params,
+                  'frac_passed': frac_passed, 'pass_criteria': c,
+                  'error_runs': error_runs, 'densities': {}}
+        results.append(record)
 
-    # no passed runs -> nothing to refine from
-    if len(passed_params) == 0:
-        print('No runs passed. Check initial parameter ranges, the pass set '
-              'definition, or the model.')
-        break
+        # termination criterion met -> calibration complete
+        if frac_passed >= terminate:
+            print('Calibration complete according to user specifications')
+            break
 
-    #   4. Refine each parameter's range from the pass (and fail) densities
-    for k, name in enumerate(names):
-        passed_k, failed_k = passed_params[:, k], failed_params[:, k]
+        # no passed runs -> nothing to refine from
+        if len(passed_params) == 0:
+            print('No runs passed. Check initial parameter ranges, the pass set '
+                  'definition, or the model.')
+            break
 
-        # density needs at least 2 distinct passed values; otherwise keep the range
-        if np.unique(passed_k).size < 2:
-            print(f'  {name}: too few distinct passed values, range kept')
-            continue
+        #   4. Refine each parameter's range from the pass (and fail) densities
+        for k, name in enumerate(names):
+            passed_k, failed_k = passed_params[:, k], failed_params[:, k]
 
-        if hdr:
-            new_range, x, dens_pass, dens_fail, dens_sub = find_hdr(passed_k, failed_k, portion_params)
-        else:
-            new_range, x, dens_pass, dens_fail, dens_sub = find_ads(passed_k, failed_k)
+            # density needs at least 2 distinct passed values; otherwise keep the range
+            if np.unique(passed_k).size < 2:
+                print(f'  {name}: too few distinct passed values, range kept')
+                continue
 
-        # save densities for the parameter density plots
-        record['densities'][name] = {'x': x, 'pass': dens_pass, 'fail': dens_fail,
-                                     'sub': dens_sub, 'new_range': new_range}
+            if hdr:
+                new_range, x, dens_pass, dens_fail, dens_sub = find_hdr(passed_k, failed_k, portion_params)
+            else:
+                new_range, x, dens_pass, dens_fail, dens_sub = find_ads(passed_k, failed_k)
 
-        # new range must still be a range; otherwise keep the current one
-        if new_range[0] < new_range[1]:
-            m.params[name]['lower'], m.params[name]['upper'] = float(new_range[0]), float(new_range[1])
-        else:
-            print(f'  {name}: refined range collapsed to one value, range kept')
+            # save densities for the parameter density plots
+            record['densities'][name] = {'x': x, 'pass': dens_pass, 'fail': dens_fail,
+                                         'sub': dens_sub, 'new_range': new_range}
 
-    # save after every iteration, so results survive a crash
+            # new range must still be a range; otherwise keep the current one
+            if new_range[0] < new_range[1]:
+                m.params[name]['lower'], m.params[name]['upper'] = float(new_range[0]), float(new_range[1])
+            else:
+                print(f'  {name}: refined range collapsed to one value, range kept')
+
+        # save after every iteration, so results survive a crash
+        with open(os.path.join(out_dir, 'calibration_results.pkl'), 'wb') as f:
+            pickle.dump(results, f)
+
+    else:
+        print('Calibration met max iteration count. Evaluate initial parameter '
+              'ranges or model construction')
+
+    # final save, including the last iteration
     with open(os.path.join(out_dir, 'calibration_results.pkl'), 'wb') as f:
         pickle.dump(results, f)
 
-else:
-    print('Calibration met max iteration count. Evaluate initial parameter '
-          'ranges or model construction')
+    # calibrated ranges
+    for name, p in m.params.items():
+        print(f"{name}: [{p['lower']:.4g}, {p['upper']:.4g}]")
 
-# final save, including the last iteration
-with open(os.path.join(out_dir, 'calibration_results.pkl'), 'wb') as f:
-    pickle.dump(results, f)
-
-# calibrated ranges
-for name, p in m.params.items():
-    print(f"{name}: [{p['lower']:.4g}, {p['upper']:.4g}]")
+if __name__ == "__main__":
+    main()
