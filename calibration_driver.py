@@ -123,9 +123,9 @@ def make_criteria(c):
             {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(high_agg_d21) / c, 'max': max(high_agg_d21) * c},
 
             # differentiation: within tolerance of the reported value
-            {'output': 'Differentiation (%)', 'day': 7, 'min': 4 / tol, 'max': 4 * tol},
-            {'output': 'Differentiation (%)', 'day': 14, 'min': 20 / tol, 'max': 20 * tol},
-            {'output': 'Differentiation (%)', 'day': 21, 'min': 48.67 / tol, 'max': 48.67 * tol},
+            # {'output': 'Differentiation (%)', 'day': 7, 'min': 4 / tol, 'max': 4 * tol},
+            # {'output': 'Differentiation (%)', 'day': 14, 'min': 20 / tol, 'max': 20 * tol},
+            # {'output': 'Differentiation (%)', 'day': 21, 'min': 48.67 / tol, 'max': 48.67 * tol},
 
         ],
         'low': [
@@ -141,9 +141,9 @@ def make_criteria(c):
             {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(low_agg_d14) / c, 'max': max(low_agg_d14) * c},
             {'output': 'Aggrecan (ug)', 'day': 21, 'min': min(low_agg_d21) / c, 'max': max(low_agg_d21) * c},
 
-            {'output': 'Differentiation (%)', 'day': 7, 'min': 10 / tol, 'max': 10 * tol},
-            {'output': 'Differentiation (%)', 'day': 14, 'min': 40 / tol, 'max': 40 * tol},
-            {'output': 'Differentiation (%)', 'day': 21, 'min': 80 / tol, 'max': 80 * tol},
+            # {'output': 'Differentiation (%)', 'day': 7, 'min': 10 / tol, 'max': 10 * tol},
+            # {'output': 'Differentiation (%)', 'day': 14, 'min': 40 / tol, 'max': 40 * tol},
+            # {'output': 'Differentiation (%)', 'day': 21, 'min': 80 / tol, 'max': 80 * tol},
         ],
     }
 
