@@ -59,7 +59,7 @@ def model_settings(param_file="parameters.xlsx"):
     m = SimpleNamespace()
 
     #sample size / number of times to run the model per iteration
-    m.NR = 3
+    m.NR = 10
 
     #replicates of ABM per param set (total runs = NR * reps)
     m.reps = 3
