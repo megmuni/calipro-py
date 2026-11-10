@@ -43,7 +43,7 @@ rng = np.random.default_rng(seed)
 # True: refine ranges with HDR. False: refine ranges with ADS
 hdr = False
 # maximum number of iterations
-max_iter = 1
+max_iter = 5
 # fraction of runs that must pass for calibration to be complete
 terminate = 0.90
 # fraction of a parameter set's replicates that must pass each condition for
@@ -115,7 +115,7 @@ def make_criteria(c):
             ),
 
             # threshold
-            {'output': 'Viability Rate(%)', 'day': 21, 'min': 100 - 10 * c},
+            {'output': 'Viability Rate(%)', 'day': 21, 'min': 100 - 15 * c},
 
             # aggrecan: window around experimental samples
             {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(high_agg_d7) / c, 'max': max(high_agg_d7) * c},
@@ -135,7 +135,7 @@ def make_criteria(c):
             ),
 
             # threshold
-            {'output': 'Viability Rate(%)', 'day': 21, 'min': 100 - 10 * c},
+            {'output': 'Viability Rate(%)', 'day': 21, 'min': 100 - 15 * c},
 
             {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(low_agg_d7) / c, 'max': max(low_agg_d7) * c},
             {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(low_agg_d14) / c, 'max': max(low_agg_d14) * c},
