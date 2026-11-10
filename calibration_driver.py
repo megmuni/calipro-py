@@ -55,8 +55,9 @@ if not 0 < rep_pass_fraction <= 1:
 portion_params = 0.85
 # how much the pass window is loosened around experimental data
 # (iterations 1-2, then later iterations)
-pass_criteria_initial = 3.0
-pass_criteria_non_initial = 1.5
+pass_criteria_schedule = [3.0, 3.0, 2.0, 2.0, 1.5]
+if not pass_criteria_schedule or min(pass_criteria_schedule) <= 0:
+    raise ValueError("pass_criteria_schedule must be a non-empty list of positive values")
 
 # where configs, logs, outputs and results are saved
 # each calipro attempt has its own folder
@@ -163,8 +164,8 @@ def main():
         model_out, days, paramMatrix, names, error_runs = model_run(m, runIteration, rng, out_dir)
 
         #   3. Evaluate runs against the pass set definition
-        # pass criteria are stricter after the first two iterations
-        c = pass_criteria_initial if runIteration <= 2 else pass_criteria_non_initial
+        # pass criteria for this iteration, from the schedule (last value repeats)
+        c = pass_criteria_schedule[min(runIteration, len(pass_criteria_schedule)) - 1]
         passed_params, passed_runs, failed_params, failed_runs = \
             eval_model_performance(make_criteria(c), model_out, days, paramMatrix,
                                    m.reps, rep_pass_fraction)
