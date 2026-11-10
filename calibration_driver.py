@@ -115,7 +115,7 @@ def make_criteria(c):
             ),
 
             # threshold
-            {'output': 'Viability Rate(%)', 'day': 21, 'min': 80},
+            {'output': 'Viability Rate(%)', 'day': 21, 'min': 100 - 10 * c},
 
             # aggrecan: window around experimental samples
             {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(high_agg_d7) / c, 'max': max(high_agg_d7) * c},
@@ -135,7 +135,7 @@ def make_criteria(c):
             ),
 
             # threshold
-            {'output': 'Viability Rate(%)', 'day': 21, 'min': 80},
+            {'output': 'Viability Rate(%)', 'day': 21, 'min': 100 - 10 * c},
 
             {'output': 'Aggrecan (ug)', 'day': 7, 'min': min(low_agg_d7) / c, 'max': max(low_agg_d7) * c},
             {'output': 'Aggrecan (ug)', 'day': 14, 'min': min(low_agg_d14) / c, 'max': max(low_agg_d14) * c},
