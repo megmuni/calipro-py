@@ -184,10 +184,19 @@ def main():
                   'error_runs': error_runs, 'densities': {}}
         results.append(record)
 
-        # termination criterion met -> calibration complete
-        if frac_passed >= terminate:
+        # termination criterion met at the strictest c: calibration complete.
+        # Before c reaches the end of the schedule, keep refining instead
+        strictest = runIteration >= len(pass_criteria_schedule)
+        if frac_passed >= terminate and strictest:
             print('Calibration complete according to user specifications')
             break
+        if frac_passed >= terminate:
+            print(f'  {frac_passed:.0%} passed at c = {c:g}; continuing until c = '
+                  f'{pass_criteria_schedule[-1]:g}')
+
+        if max_iter < len(pass_criteria_schedule):
+            raise ValueError(f"max_iter ({max_iter}) must be at least the schedule's length "
+                     f"({len(pass_criteria_schedule)}) to reach its strictest c")
 
         # no passed runs -> nothing to refine from
         if len(passed_params) == 0:
