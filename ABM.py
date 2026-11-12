@@ -58,9 +58,6 @@ AGGRECAN_COL = "Aggrecan (ug)"
 CELL_VIABILITY_COL = "Viability Rate(%)"
 PERCENT_DIFF_COL = "Differentiation (%)"
 
-# 30-minute ticks, so 48 ticks per simulated day
-TICKS_PER_DAY = 48
-
 # simulated world size
 WORLD_SIZE_MM = (1, 1, 1)
 WORLD_VOLUME_MM3 = WORLD_SIZE_MM[0] * WORLD_SIZE_MM[1] * WORLD_SIZE_MM[2]
@@ -74,28 +71,43 @@ GEL_VOLUME_MM3 = 60.0
 # read out of the ABM!
 
 OUTPUT_METRICS = [
+
+    # Day 1: fitted against experimental data
+    {"day": 1, "column": CELL_VIABILITY_COL, "label": "day_1_cell_viability",
+    "exp_column": "small_scaffold_cell_viability"},
+    {"day": 1, "column": PERCENT_DIFF_COL, "label": "day_1_percent_diff",
+    "exp_column": "small_scaffold_percent_diff"},
+    {"day": 1, "column": AGGRECAN_COL, "label": "day_1_aggrecan"},
+
     # Day 7: fitted against experimental data
     {"day": 7, "column": CELL_VIABILITY_COL, "label": "day_7_cell_viability",
-     "exp_column": "small_scaffold_cell_viability"},
+    "exp_column": "small_scaffold_cell_viability"},
     {"day": 7, "column": PERCENT_DIFF_COL, "label": "day_7_percent_diff",
-     "exp_column": "small_scaffold_percent_diff"},
-    {"day": 7, "column": AGGRECAN_COL, "label": "day_7_aggrecan"},
+    "exp_column": "small_scaffold_percent_diff"},
+    {"day": 7, "column": AGGRECAN_COL, "label": "day_7_aggrecan",
+    "exp_column": "small_scaffold_aggrecan_ug"},
     # Day 7: tracked only (no experimental data at this timepoint)
     {"day": 7, "column": TOTAL_CELLS_COL, "label": "day_7_cells"},
 
     # Day 14: fitted against experimental data
     {"day": 14, "column": CELL_VIABILITY_COL, "label": "day_14_cell_viability",
-     "exp_column": "small_scaffold_cell_viability"},
+    "exp_column": "small_scaffold_cell_viability"},
     {"day": 14, "column": PERCENT_DIFF_COL, "label": "day_14_percent_diff",
-     "exp_column": "small_scaffold_percent_diff"},
-    {"day": 14, "column": AGGRECAN_COL, "label": "day_14_aggrecan"},
+    "exp_column": "small_scaffold_percent_diff"},
+    {"day": 14, "column": AGGRECAN_COL, "label": "day_14_aggrecan",
+    "exp_column": "small_scaffold_aggrecan_ug"},
     # Day 14: tracked only
     {"day": 14, "column": TOTAL_CELLS_COL, "label": "day_14_cells"},
 
     # Day 21: fitted against experimental data
     {"day": 21, "column": TOTAL_CELLS_COL, "label": "day_21_fold_change",
-     "relative_to_day": 0,
-     "exp_column": "small_scaffold_fold_change"},
+    "relative_to_day": 0, "exp_column": "small_scaffold_fold_change"},
+    {"day": 21, "column": CELL_VIABILITY_COL, "label": "day_21_cell_viability",
+    "exp_column": "small_scaffold_cell_viability"},
+    {"day": 21, "column": PERCENT_DIFF_COL, "label": "day_21_percent_diff",
+    "exp_column": "small_scaffold_percent_diff"},
+    {"day": 21, "column": AGGRECAN_COL, "label": "day_21_aggrecan",
+    "exp_column": "small_scaffold_aggrecan_ug"},
     # Day 21: tracked only
     {"day": 21, "column": TOTAL_CELLS_COL, "label": "day_21_cells"},
 ]
@@ -372,15 +384,33 @@ def extract_output_metrics(output_file: Path,
         )
 
     # Fetch each needed day once, then pull every column for that day
+    needed_days = {m["day"] for m in metrics}
+    needed_days |= {m["relative_to_day"] for m in metrics
+                    if m.get("relative_to_day") is not None}
     rows = {
         day: extract_biomarkers_at_day(df, day, str(output_file))
-        for day in sorted({m["day"] for m in metrics})
+        for day in sorted(needed_days)
     }
 
-    return {
-        metric_label(m): float(rows[m["day"]][m["column"]])
-        for m in metrics
-    }
+    values = {}
+    for m in metrics:
+        value = float(rows[m["day"]][m["column"]])
+
+        # Ratio metric: divide by the same column at the reference day,
+        # e.g. cells at day 21 over cells at day 0.
+        ref_day = m.get("relative_to_day")
+        if ref_day is not None:
+            baseline = float(rows[ref_day][m["column"]])
+            if baseline == 0:
+                raise ValueError(
+                    f"Cannot compute {metric_label(m)}: '{m['column']}' is "
+                    f"zero at day {ref_day}, so the fold change is undefined."
+                )
+            value = value / baseline
+
+        values[metric_label(m)] = value
+
+    return values
 
 def format_output_metrics(values: dict[str, float]) -> str:
     """
@@ -396,6 +426,7 @@ def prepare_workdir(workdir: Path, extra_files: list[Path] | None = None) -> Pat
     workdir = Path(workdir)
     (workdir / "output").mkdir(parents=True, exist_ok=True)
     (workdir / "configFiles").mkdir(parents=True, exist_ok=True)
+    (workdir / "output" / "SensitivityAnalysis").mkdir(parents=True, exist_ok=True)
 
     bin_link = workdir / "bin"
     if not bin_link.exists():
@@ -415,6 +446,7 @@ def run_ABM(config_file: Path, numticks: int = METRICS_NUMTICKS, workdir: Path |
     base = Path(workdir) if workdir is not None else Path(".")
     out_dir = base / OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "SensitivityAnalysis").mkdir(parents=True, exist_ok=True)
 
     stdout_file_name = out_dir / "stdout.txt"
     stderr_file_name = out_dir / "stderr.txt"
