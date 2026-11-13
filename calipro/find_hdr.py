@@ -13,7 +13,7 @@ from calipro.ks_density import ks_density
 
 def find_hdr(passed, failed, coverage):
     """
-    
+
     For a given set of parameter values, calculates the density distribution of
     those param values and calculates the HDR according to the Hyndman algorithm
     (1996).
@@ -21,10 +21,10 @@ def find_hdr(passed, failed, coverage):
     Parameters
     ----------
     passed : array
-        array of number of passed runs x 1 (param that is being calculated to 
+        array of number of passed runs x 1 (param that is being calculated to
                                             find HDR)
     failed : array
-        array of number of failed runs x 1 (same param as passedParamsVec that 
+        array of number of failed runs x 1 (same param as passedParamsVec that
                                             is being calculated for HDR).
     coverage : float
         value that determines the region we are searching for. Value from 0-1,
@@ -33,9 +33,9 @@ def find_hdr(passed, failed, coverage):
     Returns
     -------
     hdi -- 1x2 array, the HD interval. min and max param values that correspond
-    to the HDR. used as min and max for this param for the next iteration of 
+    to the HDR. used as min and max for this param for the next iteration of
     sampling.
-    
+
     x -- 1x100 array, x values (param values) shared by all density arrays,
     spanning the observed passed values.
 
@@ -52,40 +52,40 @@ def find_hdr(passed, failed, coverage):
     # convert inputs (lists or column vectors) to flat float arrays
     passed = np.asarray(passed, dtype=float).ravel()
     failed = np.asarray(failed, dtype=float).ravel()
-    
+
     # shared grid over the observed pass values
     x = np.linspace(passed.min(), passed.max(), 100)
-    
+
     # kernel density of the passed parameter values
     densPass, _ = ks_density(passed, x)
-    
+
     # no failed runs: fail density is zero everywhere
-    if failed.size == 0:
+    if np.unique(failed).size < 2:
         densFail = np.zeros_like(densPass)
     else:
         # kernel density of the failed parameter values on the same grid (for plotting)
         densFail, _ = ks_density(failed, x)
         # zero density outside the observed fail values
         densFail[(x < failed.min()) | (x > failed.max())] = 0
-    
+
     # if all passed values identical, the range is that single value
     if passed.min() == passed.max():
         return np.array([passed.min(), passed.max()]), x, densPass, densFail, None
-    
+
     # cumulative mass along the grid (same sum as the MATLAB loop), normalized to 1
     cuml = np.concatenate(([0.0], np.cumsum(np.diff(x) * densPass[1:])))
     cuml /= cuml[-1]
-    
+
     # mass and width of every interval [x[i], x[j]]
     mass = cuml[None, :] - cuml[:, None]
     width = x[None, :] - x[:, None]
-    
+
     # average density of intervals that reach the coverage; others excluded
     with np.errstate(divide="ignore", invalid="ignore"):
         score = np.where((width > 0) & (mass >= coverage), mass / width, -np.inf)
-        
+
     # densest qualifying interval
     i, j = np.unravel_index(np.argmax(score), score.shape)
     hdi = np.array([x[i], x[j]])
-    
+
     return hdi, x, densPass, densFail, None
