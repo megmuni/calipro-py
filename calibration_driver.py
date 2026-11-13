@@ -61,8 +61,8 @@ if not pass_criteria_schedule or min(pass_criteria_schedule) <= 0:
 
 if max_iter < len(pass_criteria_schedule):
     raise ValueError(f"max_iter ({max_iter}) must be at least the schedule's length "
+                f"({len(pass_criteria_schedule)}) to reach its strictest c")
 
-                     f"({len(pass_criteria_schedule)}) to reach its strictest c
 # where configs, logs, outputs and results are saved
 # each calipro attempt has its own folder
 out_dir = os.environ.get("CALIPRO_OUT_DIR",
