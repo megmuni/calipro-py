@@ -181,8 +181,8 @@ def main():
         model_out, days, paramMatrix, names, error_runs = model_run(m, runIteration, rng, out_dir)
 
         #   3. Evaluate runs against the pass set definition
-        # pass criteria for this iteration, from the schedule (last value repeats)
-        c = pass_criteria_schedule[min(runIteration, len(pass_criteria_schedule)) - 1]
+        # pass criteria for this stage of the schedule (last value repeats)
+        c = pass_criteria_schedule[min(stage, len(pass_criteria_schedule) - 1)]
         passed_params, passed_runs, failed_params, failed_runs = \
             eval_model_performance(make_criteria(c), model_out, days, paramMatrix,
                                    m.reps, rep_pass_fraction)
