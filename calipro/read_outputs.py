@@ -15,13 +15,13 @@ import pandas as pd
 
 def read_outputs(files):
     """
- 
+
     Parameters
     ----------
     files : list of str
         paths to the output csv of each run, in the same order as the rows
         of paramMatrix (file i is run i)
- 
+
     Returns
     -------
     model_out : dict
@@ -29,7 +29,7 @@ def read_outputs(files):
         column in the output files (e.g. 'Total Cells')
     days : ndarray
         day of each timepoint (row), from the 'Day' column
- 
+
     """
     # read every run's output table
     tables = [pd.read_csv(f) if f is not None else None for f in files]
@@ -43,7 +43,8 @@ def read_outputs(files):
 
 
     # all runs must record the same timepoints to be compared
-    first = files[tables.index(ok[0])]
+    # (index by position: comparing DataFrames with == is elementwise, so list.index can't be used)
+    first = files[next(i for i, t in enumerate(tables) if t is not None)]
     days = ok[0]['Day'].to_numpy()
     for f, t in zip(files, tables):
         if t is not None and (len(t) != len(days) or not np.allclose(t['Day'], days)):

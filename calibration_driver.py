@@ -59,6 +59,14 @@ pass_criteria_schedule = [3.0, 3.0, 2.0, 2.0, 1.5]
 if not pass_criteria_schedule or min(pass_criteria_schedule) <= 0:
     raise ValueError("pass_criteria_schedule must be a non-empty list of positive values")
 
+# refine ranges only when at least this many parameter sets pass; with fewer,
+# the densities rest on too few points, so the same ranges are sampled again
+min_pass_sets = 5
+# iterations in a row without enough passing sets before giving up
+max_resample = 3
+if min_pass_sets < 1 or max_resample < 0:
+    raise ValueError("min_pass_sets must be at least 1 and max_resample at least 0")
+
 if max_iter < len(pass_criteria_schedule):
     raise ValueError(f"max_iter ({max_iter}) must be at least the schedule's length "
                 f"({len(pass_criteria_schedule)}) to reach its strictest c")
@@ -162,6 +170,11 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     results = []
 
+    # position in pass_criteria_schedule: advances only when ranges are refined,
+    # so a resampled iteration is evaluated with the same c again
+    stage = 0
+    resample_count = 0
+
     for runIteration in range(1, max_iter + 1):
 
         #   2-3. Sample parameters and run the model
@@ -190,7 +203,7 @@ def main():
 
         # termination criterion met at the strictest c: calibration complete.
         # Before c reaches the end of the schedule, keep refining instead
-        strictest = runIteration >= len(pass_criteria_schedule)
+        strictest = stage >= len(pass_criteria_schedule) - 1
         if frac_passed >= terminate and strictest:
             print('Calibration complete according to user specifications')
             break
@@ -199,10 +212,20 @@ def main():
                   f'{pass_criteria_schedule[-1]:g}')
 
         # no passed runs -> nothing to refine from
-        if len(passed_params) == 0:
-            print('No runs passed. Check initial parameter ranges, the pass set '
-                  'definition, or the model.')
-            break
+        # too few passing sets to refine from: sample the same ranges again
+        if len(passed_params) < min_pass_sets:
+            resample_count += 1
+            if resample_count > max_resample:
+                print(f'Fewer than {min_pass_sets} parameter sets passed in {resample_count} '
+                      'iterations in a row. Check initial parameter ranges, the pass set '
+                      'definition, or the model.')
+                break
+            print(f'  only {len(passed_params)} set(s) passed (need {min_pass_sets}); resampling '
+                  f'the same ranges at c = {c:g} ({resample_count} of {max_resample})')
+            with open(os.path.join(out_dir, 'calibration_results.pkl'), 'wb') as f:
+                pickle.dump(results, f)
+            continue
+        resample_count = 0
 
         #   4. Refine each parameter's range from the pass (and fail) densities
         for k, name in enumerate(names):
@@ -227,6 +250,9 @@ def main():
                 m.params[name]['lower'], m.params[name]['upper'] = float(new_range[0]), float(new_range[1])
             else:
                 print(f'  {name}: refined range collapsed to one value, range kept')
+
+        # ranges refined: move to the next c in the schedule
+        stage += 1
 
         # save after every iteration, so results survive a crash
         with open(os.path.join(out_dir, 'calibration_results.pkl'), 'wb') as f:
