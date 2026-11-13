@@ -59,6 +59,10 @@ pass_criteria_schedule = [3.0, 3.0, 2.0, 2.0, 1.5]
 if not pass_criteria_schedule or min(pass_criteria_schedule) <= 0:
     raise ValueError("pass_criteria_schedule must be a non-empty list of positive values")
 
+if max_iter < len(pass_criteria_schedule):
+    raise ValueError(f"max_iter ({max_iter}) must be at least the schedule's length "
+
+                     f"({len(pass_criteria_schedule)}) to reach its strictest c
 # where configs, logs, outputs and results are saved
 # each calipro attempt has its own folder
 out_dir = os.environ.get("CALIPRO_OUT_DIR",
@@ -193,10 +197,6 @@ def main():
         if frac_passed >= terminate:
             print(f'  {frac_passed:.0%} passed at c = {c:g}; continuing until c = '
                   f'{pass_criteria_schedule[-1]:g}')
-
-        if max_iter < len(pass_criteria_schedule):
-            raise ValueError(f"max_iter ({max_iter}) must be at least the schedule's length "
-                     f"({len(pass_criteria_schedule)}) to reach its strictest c")
 
         # no passed runs -> nothing to refine from
         if len(passed_params) == 0:
