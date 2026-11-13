@@ -75,7 +75,7 @@ def model_settings(param_file="parameters.xlsx"):
 
     # how the ABM is run (see model_run and ABM.py)
     m.base_config = "simulation_config.template.json"
-    m.conditions = ["high", "low"]
+    m.conditions = ["high"]
 
     # how the runs are executed ('slurm' job array or 'local' one after another)
     m.executor = "slurm"
