@@ -6,7 +6,7 @@
 #SBATCH --gpus=h100_1g.10gb:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G                        # EDIT if the ABM needs more
-#SBATCH --time=00:40:00                 # EDIT: comfortably above one run's time
+#SBATCH --time=01:00:00                 # EDIT: comfortably above one run's time
 set -euo pipefail
 
 module load StdEnv/2023 gcc/12.3 python/3.11

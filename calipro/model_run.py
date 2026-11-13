@@ -101,13 +101,26 @@ def model_run(modelSettings, runIteration, rng, out_dir="output/Calibration"):
         files = []
         for run in range(nruns):
             workdir = iter_dir / run_name(run, cond)
-            if (workdir / BIOMARKERS).exists():
-                files.append(str(workdir / BIOMARKERS))
-            else:
+            t = tasks.index((run, cond))
+            out_file = workdir / BIOMARKERS
+            if not out_file.exists():
                 files.append(None)
-                t = tasks.index((run, cond))
                 error_runs.append({'run': run, 'condition': cond,
                                    'message': failure_reason(workdir, iter_dir, t)})
+                continue
+
+            # an output cut short (e.g. task killed at its time limit) is a failed run
+            with open(out_file) as f:
+                nrows = sum(1 for _ in f) - 1   # minus the header
+            if nrows != len(modelSettings.tspan):
+                files.append(None)
+                error_runs.append({'run': run, 'condition': cond,
+                                   'message': f"incomplete output: {nrows} of {len(modelSettings.tspan)} "
+                                              f"timepoints (stopped early, e.g. time limit; see "
+                                              f"{iter_dir}/slurm_{t}.out)"})
+                continue
+
+            files.append(str(out_file))
 
         # this condition's outputs as timepoints x samples arrays
         model_out[cond], cond_days = read_outputs(files)
